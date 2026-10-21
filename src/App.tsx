@@ -5,10 +5,15 @@ import { Login } from './components/Login'
 import { PixelIcon } from './components/PixelIcon'
 import { Room } from './components/Room'
 import { Sprite } from './components/Sprite'
+import { SoundToggle } from './components/SoundToggle'
 import { StatMeters } from './components/StatMeters'
 import { IncomingScene, KnockingScene } from './components/TravelScenes'
-import { useNailong } from './hooks/useNailong'
+import { type Action, useNailong } from './hooks/useNailong'
+import { playSfx } from './lib/sound'
 import { supabase } from './lib/supabase'
+
+const KNOCK_FIRST_MS = 850
+const KNOCK_CYCLE_MS = 1600
 
 function formatRemaining(ms: number) {
   const totalSeconds = Math.ceil(ms / 1000)
@@ -34,11 +39,38 @@ function Home({ userId }: { userId: string }) {
   const { loaded, stats, phase, hostName, myName, otherName, msUntilSend, error, doAction, send, letIn } =
     useNailong(userId)
 
+  useEffect(() => {
+    if (phase !== 'knocking') return
+    playSfx('arrive')
+    let knockTimer: number | undefined
+    const firstKnock = window.setTimeout(() => {
+      playSfx('knock')
+      knockTimer = window.setInterval(() => playSfx('knock'), KNOCK_CYCLE_MS)
+    }, KNOCK_FIRST_MS)
+    return () => {
+      window.clearTimeout(firstKnock)
+      window.clearInterval(knockTimer)
+    }
+  }, [phase])
+
   if (!loaded || !stats || !phase) return <Loading />
 
   const isHome = phase === 'home'
   const canSend = msUntilSend === 0
   const remaining = canSend ? null : formatRemaining(msUntilSend)
+
+  const act = (action: Action) => {
+    playSfx(action)
+    doAction(action)
+  }
+  const sendWithSound = () => {
+    playSfx('send')
+    send()
+  }
+  const letInWithSound = () => {
+    playSfx('welcome')
+    letIn()
+  }
 
   return (
     <main className="home">
@@ -48,17 +80,18 @@ function Home({ userId }: { userId: string }) {
           <span className={isHome ? 'who__dot who__dot--home' : 'who__dot'} />
           Casa de {myName ?? '…'}
         </span>
+        <SoundToggle />
         <button className="ghost" onClick={() => supabase.auth.signOut()}>
           Salir
         </button>
       </header>
 
-      {phase === 'home' && <Room stats={stats} canSend={canSend} onAction={doAction} onSend={send} />}
+      {phase === 'home' && <Room stats={stats} canSend={canSend} onAction={act} onSend={sendWithSound} />}
       {phase === 'incoming' && <IncomingScene from={otherName} />}
       {phase === 'knocking' && (
         <>
           <KnockingScene />
-          <button className="btn" onClick={letIn}>
+          <button className="btn" onClick={letInWithSound}>
             Dejar pasar
           </button>
         </>
