@@ -5,38 +5,41 @@ const STORAGE_KEY = 'nailong:sound'
 const SFX_VOLUME = 0.22
 const MUSIC_VOLUME = 0.07
 const SCHEDULE_AHEAD = 0.6
-const BEAT = 60 / 84
+const BEAT = 60 / 116
 const LOOP_BEATS = 32
 
 const NOTE = {
-  C3: 130.81, A2: 110, F2: 87.31, G2: 98,
-  C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880, C6: 1046.5, E6: 1318.5, G6: 1568,
+  C3: 130.81, F3: 174.61, G3: 196,
+  C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880, B5: 987.77,
+  C6: 1046.5, D6: 1174.66, E6: 1318.5, G6: 1568,
 } as const
 
 type MusicEvent = { beat: number; freq: number; duration: number; type: OscillatorType; peak: number }
 
 const MELODY: [number, number][] = [
-  [NOTE.E5, 1], [NOTE.G5, 1], [NOTE.A5, 1], [NOTE.G5, 1],
-  [NOTE.E5, 2], [NOTE.D5, 1], [NOTE.C5, 1],
-  [NOTE.D5, 1], [NOTE.E5, 1], [NOTE.G5, 1], [NOTE.E5, 1],
-  [NOTE.D5, 2], [NOTE.C5, 2],
-  [NOTE.E5, 1], [NOTE.G5, 1], [NOTE.A5, 1], [NOTE.C6, 1],
-  [NOTE.A5, 2], [NOTE.G5, 2],
-  [NOTE.E5, 1], [NOTE.D5, 1], [NOTE.C5, 1], [NOTE.D5, 1],
-  [NOTE.C5, 4],
+  [NOTE.E5, 0.5], [NOTE.G5, 0.5], [NOTE.C6, 1], [NOTE.G5, 0.5], [NOTE.E5, 0.5], [NOTE.G5, 1],
+  [NOTE.A5, 0.5], [NOTE.G5, 0.5], [NOTE.F5, 1], [NOTE.A5, 0.5], [NOTE.G5, 0.5], [NOTE.F5, 1],
+  [NOTE.E5, 0.5], [NOTE.G5, 0.5], [NOTE.C6, 1], [NOTE.E6, 1], [NOTE.C6, 1],
+  [NOTE.D6, 0.5], [NOTE.C6, 0.5], [NOTE.B5, 1], [NOTE.G5, 2],
+  [NOTE.E5, 0.5], [NOTE.G5, 0.5], [NOTE.C6, 1], [NOTE.G5, 0.5], [NOTE.E5, 0.5], [NOTE.G5, 1],
+  [NOTE.A5, 1], [NOTE.C6, 0.5], [NOTE.A5, 0.5], [NOTE.F5, 1], [NOTE.A5, 1],
+  [NOTE.G5, 0.5], [NOTE.B5, 0.5], [NOTE.D6, 1], [NOTE.B5, 0.5], [NOTE.G5, 0.5], [NOTE.D6, 1],
+  [NOTE.C6, 1], [NOTE.G5, 1], [NOTE.C6, 2],
 ]
-const BASS_ROOTS = [NOTE.C3, NOTE.C3, NOTE.A2, NOTE.A2, NOTE.F2, NOTE.F2, NOTE.G2, NOTE.C3]
+const BASS_ROOTS = [NOTE.C3, NOTE.F3, NOTE.C3, NOTE.G3, NOTE.C3, NOTE.F3, NOTE.G3, NOTE.C3]
 
 function buildMusic(): MusicEvent[] {
   const events: MusicEvent[] = []
   let beat = 0
   for (const [freq, length] of MELODY) {
-    events.push({ beat, freq, duration: length * BEAT * 0.9, type: 'square', peak: 0.5 })
+    events.push({ beat, freq, duration: length * BEAT * 0.8, type: 'square', peak: 0.5 })
     beat += length
   }
   BASS_ROOTS.forEach((root, bar) => {
-    events.push({ beat: bar * 4, freq: root, duration: BEAT * 1.8, type: 'triangle', peak: 1 })
-    events.push({ beat: bar * 4 + 2, freq: root * 1.5, duration: BEAT * 1.8, type: 'triangle', peak: 0.8 })
+    for (let step = 0; step < 4; step += 1) {
+      const freq = step % 2 === 0 ? root : root * 1.5
+      events.push({ beat: bar * 4 + step, freq, duration: BEAT * 0.45, type: 'triangle', peak: 1 })
+    }
   })
   return events.sort((first, second) => first.beat - second.beat)
 }
