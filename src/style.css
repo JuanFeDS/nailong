@@ -136,6 +136,14 @@ button {
   font-weight: 700;
 }
 
+.ghost--icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  padding: 0;
+  color: var(--sun);
+}
+
 .ghost:active {
   background: color-mix(in oklch, var(--ink) 16%, transparent);
 }
