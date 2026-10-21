@@ -1,0 +1,7 @@
+node_modules
+dist
+.env
+.claude/
+/preview.html
+/public/favicon.svg
+/public/sprites/*.png
