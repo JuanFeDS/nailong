@@ -10,11 +10,18 @@ import { useNailong } from './hooks/useNailong'
 import { supabase } from './lib/supabase'
 
 function formatRemaining(ms: number) {
-  const totalMinutes = Math.ceil(ms / 60_000)
-  const days = Math.floor(totalMinutes / 1440)
-  const hours = Math.floor((totalMinutes % 1440) / 60)
-  const minutes = totalMinutes % 60
-  return [days && `${days} d`, hours && `${hours} h`, minutes && `${minutes} min`].filter(Boolean).join(' ')
+  const totalSeconds = Math.ceil(ms / 1000)
+  const units: [number, string][] = [
+    [Math.floor(totalSeconds / 86_400), 'd'],
+    [Math.floor((totalSeconds % 86_400) / 3600), 'h'],
+    [Math.floor((totalSeconds % 3600) / 60), 'min'],
+    [totalSeconds % 60, 's'],
+  ]
+  const firstNonZero = units.findIndex(([value]) => value > 0)
+  return units
+    .slice(firstNonZero)
+    .map(([value, unit]) => `${value} ${unit}`)
+    .join(' ')
 }
 
 function Loading() {
