@@ -12,6 +12,9 @@ export interface NailongRow {
   last_updated_at: string
   current_home: string | null
   last_sent_at: string | null
+  status: 'home' | 'traveling'
+  arrives_at: string | null
+  last_entered_at: string | null
 }
 
 export interface Profile {
