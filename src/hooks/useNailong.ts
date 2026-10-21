@@ -76,8 +76,7 @@ export function useNailong(userId: string) {
   const hostName = profiles.find((profile) => profile.id === row?.current_home)?.display_name
   const myName = profiles.find((profile) => profile.id === userId)?.display_name
   const otherName = profiles.find((profile) => profile.id !== userId)?.display_name
-  const cooldownStart = row?.last_entered_at ?? row?.last_sent_at
-  const sendAvailableAt = cooldownStart ? new Date(cooldownStart).getTime() + SEND_COOLDOWN_MS : 0
+  const sendAvailableAt = row?.last_entered_at ? new Date(row.last_entered_at).getTime() + SEND_COOLDOWN_MS : 0
 
   return {
     loaded: row !== null,
