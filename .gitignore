@@ -6,3 +6,4 @@ dist
 /public/favicon.svg
 /public/sprites/*.png
 /PROPUESTA_ANIMACIONES.md
+/.push-secrets.txt

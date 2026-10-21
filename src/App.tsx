@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js'
 import { useEffect, useState } from 'react'
 import { AwayRoom } from './components/AwayRoom'
 import { Login } from './components/Login'
+import { NotificationToggle } from './components/NotificationToggle'
 import { PixelIcon } from './components/PixelIcon'
 import { Room } from './components/Room'
 import { Sprite } from './components/Sprite'
@@ -47,10 +48,11 @@ function Home({ userId }: { userId: string }) {
   const weatherCode = useWeatherCode(place)
   const [notice, setNotice] = useState<string | null>(null)
 
-  const showSleepingNotice = () => {
-    setNotice('Shh, Nailong está durmiendo')
+  const showNotice = (text: string) => {
+    setNotice(text)
     window.setTimeout(() => setNotice(null), NOTICE_MS)
   }
+  const showSleepingNotice = () => showNotice('Shh, Nailong está durmiendo')
 
   useEffect(() => {
     if (phase !== 'knocking') return
@@ -96,6 +98,7 @@ function Home({ userId }: { userId: string }) {
           <span className={isHome ? 'who__dot who__dot--home' : 'who__dot'} />
           Casa de {myName ?? '…'}
         </span>
+        <NotificationToggle userId={userId} onMessage={showNotice} />
         <SoundToggle />
         <button className="ghost" onClick={() => supabase.auth.signOut()}>
           Salir
