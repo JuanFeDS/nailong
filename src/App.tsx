@@ -10,8 +10,11 @@ import { useNailong } from './hooks/useNailong'
 import { supabase } from './lib/supabase'
 
 function formatRemaining(ms: number) {
-  const hours = Math.ceil(ms / 3_600_000)
-  return hours >= 24 ? `${Math.floor(hours / 24)} d ${hours % 24} h` : `${hours} h`
+  const totalMinutes = Math.ceil(ms / 60_000)
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  return [days && `${days} d`, hours && `${hours} h`, minutes && `${minutes} min`].filter(Boolean).join(' ')
 }
 
 function Loading() {
