@@ -8,6 +8,7 @@ Uso:
 import argparse
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from fondo import quitar_fondo
@@ -41,6 +42,27 @@ def alinear_abajo_derecha(celdas: list[Image.Image]) -> list[Image.Image]:
     return alineadas
 
 
+def alinear_pies(celdas: list[Image.Image]) -> list[Image.Image]:
+    """Centra los pies de cada celda y apoya todos los frames en el mismo suelo.
+
+    Los pies son la franja inferior del contenido: centrarlos evita que el
+    personaje se desplace al mover brazos o cabeza. Se recorta el vacío bajo
+    los pies, para que el suelo coincida con el borde inferior de la celda.
+    """
+    cajas = [celda.getchannel("A").getbbox() for celda in celdas]
+    suelo = max(caja[3] for caja in cajas)
+    alineadas = []
+    for celda, caja in zip(celdas, cajas):
+        alto_pies = max(1, (caja[3] - caja[1]) // 6)
+        franja = np.asarray(celda.getchannel("A"))[caja[3] - alto_pies : caja[3]] > 0
+        columnas = np.nonzero(franja.any(axis=0))[0]
+        centro_pies = (columnas.min() + columnas.max()) / 2
+        nueva = Image.new("RGBA", celda.size, (0, 0, 0, 0))
+        nueva.paste(celda, (round(celda.width / 2 - centro_pies), suelo - caja[3]))
+        alineadas.append(nueva.crop((0, 0, celda.width, suelo)))
+    return alineadas
+
+
 def main() -> None:
     """Procesa la hoja y guarda la tira de frames."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -51,13 +73,19 @@ def main() -> None:
     parser.add_argument("--ancho-celda", type=int, required=True, help="Ancho nativo de cada frame")
     parser.add_argument("--tolerancia", type=int, default=70)
     parser.add_argument("--colores", type=int, default=48)
-    parser.add_argument("--alinear", action="store_true", help="Alinear por borde inferior y derecho")
+    parser.add_argument(
+        "--alinear",
+        choices=["derecha", "pies"],
+        help="derecha: borde inferior y derecho (objeto fijo); pies: centra los pies (personaje)",
+    )
     argumentos = parser.parse_args()
 
     sin_fondo = quitar_fondo(Image.open(argumentos.hoja), argumentos.tolerancia)
     celdas = cortar_cuadricula(sin_fondo, argumentos.filas, argumentos.columnas)
-    if argumentos.alinear:
+    if argumentos.alinear == "derecha":
         celdas = alinear_abajo_derecha(celdas)
+    elif argumentos.alinear == "pies":
+        celdas = alinear_pies(celdas)
     escala = argumentos.ancho_celda / celdas[0].width
     tamano = (argumentos.ancho_celda, round(celdas[0].height * escala))
     reducidas = cuantizar_compartido(
