@@ -11,9 +11,11 @@ const WALL_HEIGHT = 148
 const BACKGROUND_URL = asset('rooms/room_a.png')
 const WINDOW_POSITION = { x: 32, y: 22 }
 const SPEED = 80
-const ACTION_MS = 1800
 const EAT_URL = asset('sprites/processed/eat.png')
 const EAT_FRAMES = 8
+const SLEEP_URL = asset('sprites/processed/sleep.png')
+const SLEEP_FRAMES = 8
+const SLEEP_INSET = 16
 const SPRITE_SCALE = 2
 const IDLE_URL = asset('sprites/processed/idle.png')
 const IDLE_SEQUENCE = [0, 1, 0, 1, 0, 2, 0, 1, 0, 3]
@@ -28,6 +30,8 @@ const SOURCE_CELL = 64
 const SPRITE_SIZE = 128
 
 type Task = Action | 'send'
+
+const ACTION_DURATION: Record<Task, number> = { feed: 1800, play: 1800, sleep: 5000, send: 1800 }
 
 const OBJECT_NAMES = [
   'bed', 'bowl', 'ball', 'door', 'rug', 'plant',
@@ -120,6 +124,8 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
     walkBackSprite.src = WALK_BACK_URL
     const eatSprite = new Image()
     eatSprite.src = EAT_URL
+    const sleepSprite = new Image()
+    sleepSprite.src = SLEEP_URL
     const objects = Object.fromEntries(
       OBJECT_NAMES.map((name) => {
         const image = new Image()
@@ -215,7 +221,7 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
         walker.target = null
         if (walker.task && (walker.task !== 'send' || latest.current.canSend)) {
           walker.busyTask = walker.task
-          walker.busyUntil = time + ACTION_MS
+          walker.busyUntil = time + ACTION_DURATION[walker.task]
         }
         walker.task = null
         return
@@ -255,7 +261,7 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
         context.globalAlpha = busy === 'sleep' ? 0.75 : 1
         context.filter = mood === 'weak' || mood === 'sad' ? 'saturate(0.45)' : 'none'
         if (eating) {
-          const progress = 1 - (walker.busyUntil - time) / ACTION_MS
+          const progress = 1 - (walker.busyUntil - time) / ACTION_DURATION.feed
           const frame = Math.min(EAT_FRAMES - 1, Math.max(0, Math.floor(progress * EAT_FRAMES)))
           context.drawImage(
             eatSprite,
@@ -289,6 +295,34 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
       if (bubble) context.fillText(bubble, baseX - 16, baseY - spriteTop - 4)
     }
 
+    const bed = PLACEMENTS.find((item) => item.name === 'bed')!
+
+    const isSleepingOnBed = (time: number) =>
+      time < walker.busyUntil && walker.busyTask === 'sleep' && sleepSprite.complete && sleepSprite.naturalWidth > 0
+
+    const drawSleeper = (time: number) => {
+      const frameWidth = sleepSprite.naturalWidth / SLEEP_FRAMES
+      const progress = 1 - (walker.busyUntil - time) / ACTION_DURATION.sleep
+      const frame = Math.min(SLEEP_FRAMES - 1, Math.max(0, Math.floor(progress * SLEEP_FRAMES)))
+      const width = frameWidth * SPRITE_SCALE
+      const height = sleepSprite.naturalHeight * SPRITE_SCALE
+      const top = bed.baseY - SLEEP_INSET - height
+      context.drawImage(
+        sleepSprite,
+        frame * frameWidth, 0, frameWidth, sleepSprite.naturalHeight,
+        bed.cx - width / 2, top, width, height,
+      )
+
+      context.fillStyle = '#fff'
+      for (let letter = 0; letter < 3; letter += 1) {
+        const rise = (time / 1400 + letter / 3) % 1
+        context.globalAlpha = 1 - rise
+        context.font = `${16 + letter * 4}px monospace`
+        context.fillText('z', bed.cx + 26 + letter * 14, top + 24 - rise * 44)
+      }
+      context.globalAlpha = 1
+    }
+
     const draw = (time: number) => {
       context.imageSmoothingEnabled = false
       context.clearRect(0, 0, viewWidth, HEIGHT)
@@ -319,7 +353,9 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
             context.restore()
           },
         })),
-        { depth: walker.y, draw: () => drawNailong(time) },
+        isSleepingOnBed(time)
+          ? { depth: bed.baseY + 1, draw: () => drawSleeper(time) }
+          : { depth: walker.y, draw: () => drawNailong(time) },
       ].sort((first, second) => first.depth - second.depth)
       drawables.forEach((drawable) => drawable.draw())
       context.restore()

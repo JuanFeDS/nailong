@@ -63,6 +63,22 @@ def alinear_pies(celdas: list[Image.Image]) -> list[Image.Image]:
     return alineadas
 
 
+def alinear_abajo(celdas: list[Image.Image]) -> list[Image.Image]:
+    """Apoya todos los frames en el mismo suelo sin mover nada en horizontal.
+
+    Útil cuando la IA ya colocó bien cada pose dentro de su celda y solo hay
+    que corregir pequeñas diferencias de altura. Recorta el vacío bajo el suelo.
+    """
+    cajas = [celda.getchannel("A").getbbox() for celda in celdas]
+    suelo = max(caja[3] for caja in cajas)
+    alineadas = []
+    for celda, caja in zip(celdas, cajas):
+        nueva = Image.new("RGBA", celda.size, (0, 0, 0, 0))
+        nueva.paste(celda, (0, suelo - caja[3]))
+        alineadas.append(nueva.crop((0, 0, celda.width, suelo)))
+    return alineadas
+
+
 def main() -> None:
     """Procesa la hoja y guarda la tira de frames."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -75,8 +91,11 @@ def main() -> None:
     parser.add_argument("--colores", type=int, default=48)
     parser.add_argument(
         "--alinear",
-        choices=["derecha", "pies"],
-        help="derecha: borde inferior y derecho (objeto fijo); pies: centra los pies (personaje)",
+        choices=["derecha", "pies", "abajo"],
+        help=(
+            "derecha: borde inferior y derecho (objeto fijo); pies: centra los pies (personaje); "
+            "abajo: solo iguala el suelo, sin mover en horizontal"
+        ),
     )
     argumentos = parser.parse_args()
 
@@ -86,6 +105,8 @@ def main() -> None:
         celdas = alinear_abajo_derecha(celdas)
     elif argumentos.alinear == "pies":
         celdas = alinear_pies(celdas)
+    elif argumentos.alinear == "abajo":
+        celdas = alinear_abajo(celdas)
     escala = argumentos.ancho_celda / celdas[0].width
     tamano = (argumentos.ancho_celda, round(celdas[0].height * escala))
     reducidas = cuantizar_compartido(
