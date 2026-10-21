@@ -10,10 +10,12 @@ import { StatMeters } from './components/StatMeters'
 import { IncomingScene, KnockingScene } from './components/TravelScenes'
 import { type Action, useNailong } from './hooks/useNailong'
 import { useWeatherCode } from './hooks/useWeather'
+import { isSleepTime, WAKE_LABEL } from './lib/sleep'
 import { playSfx } from './lib/sound'
 import { supabase } from './lib/supabase'
 import { PLACES, pickWindow } from './lib/weather'
 
+const NOTICE_MS = 2500
 const KNOCK_FIRST_MS = 850
 const KNOCK_CYCLE_MS = 1600
 
@@ -43,6 +45,12 @@ function Home({ userId }: { userId: string }) {
 
   const place = PLACES[(myName ?? '').toLowerCase()]
   const weatherCode = useWeatherCode(place)
+  const [notice, setNotice] = useState<string | null>(null)
+
+  const showSleepingNotice = () => {
+    setNotice('Shh, Nailong está durmiendo')
+    window.setTimeout(() => setNotice(null), NOTICE_MS)
+  }
 
   useEffect(() => {
     if (phase !== 'knocking') return
@@ -65,6 +73,7 @@ function Home({ userId }: { userId: string }) {
   const remaining = canSend ? null : formatRemaining(msUntilSend)
 
   const windowName = pickWindow(new Date(), place?.latitude ?? 0, weatherCode)
+  const sleeping = isSleepTime(new Date())
 
   const act = (action: Action) => {
     playSfx(action)
@@ -94,7 +103,15 @@ function Home({ userId }: { userId: string }) {
       </header>
 
       {phase === 'home' && (
-        <Room stats={stats} canSend={canSend} windowName={windowName} onAction={act} onSend={sendWithSound} />
+        <Room
+          stats={stats}
+          canSend={canSend}
+          windowName={windowName}
+          sleeping={sleeping}
+          onBlockedTap={showSleepingNotice}
+          onAction={act}
+          onSend={sendWithSound}
+        />
       )}
       {phase === 'incoming' && <IncomingScene from={otherName} />}
       {phase === 'knocking' && (
@@ -111,12 +128,21 @@ function Home({ userId }: { userId: string }) {
 
       <StatMeters stats={stats} />
 
-      {isHome && (
+      {isHome && sleeping && (
+        <p className="door">
+          <PixelIcon name="house" size={20} />
+          Nailong duerme · despierta a las {WAKE_LABEL}
+        </p>
+      )}
+
+      {isHome && !sleeping && (
         <p className={canSend ? 'door door--open' : 'door'}>
           <PixelIcon name="door" size={20} />
           {canSend ? `La puerta está lista para enviarlo con ${otherName ?? 'la otra persona'}` : `Puerta cerrada · ${remaining}`}
         </p>
       )}
+
+      {notice && <p className="notice">{notice}</p>}
 
       {error && (
         <p className="error" role="alert">

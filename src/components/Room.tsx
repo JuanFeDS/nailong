@@ -16,6 +16,8 @@ const EAT_FRAMES = 8
 const SLEEP_URL = asset('sprites/processed/sleep.png')
 const SLEEP_FRAMES = 8
 const SLEEP_INSET = 16
+const NIGHT_LOOP_MS = 6000
+const NIGHT_TINT = 'rgba(10, 8, 40, 0.38)'
 const SPRITE_SCALE = 2
 const IDLE_URL = asset('sprites/processed/idle.png')
 const IDLE_SEQUENCE = [0, 1, 0, 1, 0, 2, 0, 1, 0, 3]
@@ -69,6 +71,8 @@ interface Props {
   stats: Stats
   canSend: boolean
   windowName: WindowName
+  sleeping: boolean
+  onBlockedTap: () => void
   onAction: (action: Action) => void
   onSend: () => void
 }
@@ -95,10 +99,10 @@ function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 
   return 'idle'
 }
 
-export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
+export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latest = useRef({ stats, canSend, windowName, onAction, onSend })
-  latest.current = { stats, canSend, windowName, onAction, onSend }
+  const latest = useRef({ stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
+  latest.current = { stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -163,6 +167,10 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
     }
 
     const handleClick = (event: MouseEvent) => {
+      if (latest.current.sleeping) {
+        latest.current.onBlockedTap()
+        return
+      }
       const rect = canvas.getBoundingClientRect()
       const clickX = ((event.clientX - rect.left) / rect.width) * viewWidth + cameraX
       const clickY = ((event.clientY - rect.top) / rect.height) * HEIGHT
@@ -200,6 +208,12 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
         walker.busyTask = null
         if (finished === 'send') latest.current.onSend()
         else latest.current.onAction(finished)
+      }
+
+      if (latest.current.sleeping) {
+        walker.target = null
+        walker.task = null
+        return
       }
 
       if (!walker.target && time > walker.nextWanderAt) {
@@ -298,11 +312,15 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
     const bed = PLACEMENTS.find((item) => item.name === 'bed')!
 
     const isSleepingOnBed = (time: number) =>
-      time < walker.busyUntil && walker.busyTask === 'sleep' && sleepSprite.complete && sleepSprite.naturalWidth > 0
+      sleepSprite.complete &&
+      sleepSprite.naturalWidth > 0 &&
+      (latest.current.sleeping || (time < walker.busyUntil && walker.busyTask === 'sleep'))
 
     const drawSleeper = (time: number) => {
       const frameWidth = sleepSprite.naturalWidth / SLEEP_FRAMES
-      const progress = 1 - (walker.busyUntil - time) / ACTION_DURATION.sleep
+      const progress = latest.current.sleeping
+        ? (time % NIGHT_LOOP_MS) / NIGHT_LOOP_MS
+        : 1 - (walker.busyUntil - time) / ACTION_DURATION.sleep
       const frame = Math.min(SLEEP_FRAMES - 1, Math.max(0, Math.floor(progress * SLEEP_FRAMES)))
       const width = frameWidth * SPRITE_SCALE
       const height = sleepSprite.naturalHeight * SPRITE_SCALE
@@ -359,6 +377,11 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
       ].sort((first, second) => first.depth - second.depth)
       drawables.forEach((drawable) => drawable.draw())
       context.restore()
+
+      if (latest.current.sleeping) {
+        context.fillStyle = NIGHT_TINT
+        context.fillRect(0, 0, viewWidth, HEIGHT)
+      }
     }
 
     const loop = (time: number) => {
