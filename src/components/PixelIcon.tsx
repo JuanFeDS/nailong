@@ -1,0 +1,33 @@
+const ICONS = {
+  bowl: ['..#.#...', '.#.#.#..', '########', '.######.', '.######.', '..####..', '........', '........'],
+  heart: ['.##..##.', '########', '########', '########', '.######.', '..####..', '...##...', '........'],
+  bolt: ['.....##.', '....##..', '...##...', '..#####.', '....##..', '...##...', '..##....', '..#.....'],
+  door: ['..####..', '.#....#.', '.#....#.', '.#....#.', '.#...##.', '.#....#.', '.#....#.', '########'],
+  house: ['...##...', '..####..', '.######.', '########', '.#.##.#.', '.#.##.#.', '.#.##.#.', '.######.'],
+} as const
+
+export type PixelIconName = keyof typeof ICONS
+
+interface Props {
+  name: PixelIconName
+  size?: number
+}
+
+export function PixelIcon({ name, size = 24 }: Props) {
+  return (
+    <svg
+      viewBox="0 0 8 8"
+      width={size}
+      height={size}
+      shapeRendering="crispEdges"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      {ICONS[name].flatMap((row, rowIndex) =>
+        [...row].map((cell, columnIndex) =>
+          cell === '#' ? <rect key={`${rowIndex}-${columnIndex}`} x={columnIndex} y={rowIndex} width="1" height="1" /> : null,
+        ),
+      )}
+    </svg>
+  )
+}
