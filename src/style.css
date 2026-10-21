@@ -441,6 +441,11 @@ button {
 
 /* ---------- Puerta, avisos, carga ---------- */
 
+.door,
+.away__text {
+  font-variant-numeric: tabular-nums;
+}
+
 .door {
   display: flex;
   align-items: center;
