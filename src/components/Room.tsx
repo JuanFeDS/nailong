@@ -12,6 +12,9 @@ const BACKGROUND_URL = asset('rooms/room_a.png')
 const WINDOW_POSITION = { x: 32, y: 22 }
 const SPEED = 80
 const ACTION_MS = 1800
+const EAT_URL = asset('sprites/processed/eat.png')
+const EAT_FRAMES = 8
+const SPRITE_SCALE = 2
 const IDLE_URL = asset('sprites/processed/idle.png')
 const IDLE_SEQUENCE = [0, 1, 0, 1, 0, 2, 0, 1, 0, 3]
 const IDLE_FRAME_MS = 600
@@ -115,6 +118,8 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
     ) as Record<WindowName, HTMLImageElement>
     const walkBackSprite = new Image()
     walkBackSprite.src = WALK_BACK_URL
+    const eatSprite = new Image()
+    eatSprite.src = EAT_URL
     const objects = Object.fromEntries(
       OBJECT_NAMES.map((name) => {
         const image = new Image()
@@ -238,14 +243,26 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
       context.ellipse(baseX, walker.y - 2, 40, 9, 0, 0, Math.PI * 2)
       context.fill()
 
-      if (useWalkFrames || (sprite.complete && sprite.naturalWidth > 0)) {
+      const eating = busy === 'feed' && eatSprite.complete && eatSprite.naturalWidth > 0
+      const eatWidth = eatSprite.naturalWidth / EAT_FRAMES
+      const spriteTop = eating ? eatSprite.naturalHeight * SPRITE_SCALE : SPRITE_SIZE
+
+      if (eating || useWalkFrames || (sprite.complete && sprite.naturalWidth > 0)) {
         context.save()
         context.translate(baseX, baseY)
-        context.scale(useWalkFrames && walkSheet !== walkSprite ? 1 : walker.facing, 1)
+        context.scale(eating || (useWalkFrames && walkSheet !== walkSprite) ? 1 : walker.facing, 1)
         if (busy === 'sleep') context.rotate(-0.15 * walker.facing)
         context.globalAlpha = busy === 'sleep' ? 0.75 : 1
         context.filter = mood === 'weak' || mood === 'sad' ? 'saturate(0.45)' : 'none'
-        if (useWalkFrames) {
+        if (eating) {
+          const progress = 1 - (walker.busyUntil - time) / ACTION_MS
+          const frame = Math.min(EAT_FRAMES - 1, Math.max(0, Math.floor(progress * EAT_FRAMES)))
+          context.drawImage(
+            eatSprite,
+            frame * eatWidth, 0, eatWidth, eatSprite.naturalHeight,
+            -(eatWidth * SPRITE_SCALE) / 2, -spriteTop, eatWidth * SPRITE_SCALE, spriteTop,
+          )
+        } else if (useWalkFrames) {
           const frame = Math.floor(time / WALK_FRAME_MS) % WALK_FRAMES
           context.drawImage(
             walkSheet,
@@ -269,7 +286,7 @@ export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
       context.fillStyle = '#fff'
       context.font = '24px monospace'
       const bubble = busy === 'feed' ? 'ñam' : busy === 'sleep' ? 'zzz' : busy === 'play' ? '♪' : busy === 'send' ? 'adiós' : ''
-      if (bubble) context.fillText(bubble, baseX - 16, baseY - SPRITE_SIZE - 4)
+      if (bubble) context.fillText(bubble, baseX - 16, baseY - spriteTop - 4)
     }
 
     const draw = (time: number) => {
