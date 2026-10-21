@@ -22,5 +22,4 @@ export interface Profile {
   display_name: string
 }
 
-export const DECAY_PER_HOUR = { satiety: 4, happiness: 4, energy: 3 }
 export const SEND_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000

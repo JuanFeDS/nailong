@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import {
-  DECAY_PER_HOUR,
-  type NailongRow,
-  type Profile,
-  SEND_COOLDOWN_MS,
-  supabase,
-} from '../lib/supabase'
+import { ASLEEP_RATES, AWAKE_RATES, nightHours } from '../lib/sleep'
+import { type NailongRow, type Profile, SEND_COOLDOWN_MS, supabase } from '../lib/supabase'
 
 export interface Stats {
   satiety: number
@@ -16,12 +11,16 @@ export interface Stats {
 export type Action = 'feed' | 'play' | 'sleep'
 
 function decayedStats(row: NailongRow, now: number): Stats {
-  const hours = Math.max(0, now - new Date(row.last_updated_at).getTime()) / 3_600_000
-  const decay = (value: number, perHour: number) => Math.max(0, value - perHour * hours)
+  const from = new Date(row.last_updated_at).getTime()
+  const totalHours = Math.max(0, now - from) / 3_600_000
+  const asleepHours = nightHours(from, now)
+  const awakeHours = totalHours - asleepHours
+  const evolve = (value: number, key: keyof Stats) =>
+    Math.min(100, Math.max(0, value + AWAKE_RATES[key] * awakeHours + ASLEEP_RATES[key] * asleepHours))
   return {
-    satiety: decay(row.satiety, DECAY_PER_HOUR.satiety),
-    happiness: decay(row.happiness, DECAY_PER_HOUR.happiness),
-    energy: decay(row.energy, DECAY_PER_HOUR.energy),
+    satiety: evolve(row.satiety, 'satiety'),
+    happiness: evolve(row.happiness, 'happiness'),
+    energy: evolve(row.energy, 'energy'),
   }
 }
 
