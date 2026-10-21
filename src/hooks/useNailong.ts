@@ -42,7 +42,7 @@ export function useNailong(userId: string) {
       )
       .subscribe()
 
-    const timer = setInterval(() => setNow(Date.now()), 5000)
+    const timer = setInterval(() => setNow(Date.now()), 1000)
     return () => {
       clearInterval(timer)
       supabase.removeChannel(channel)
