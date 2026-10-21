@@ -6,7 +6,8 @@ const MOBILE_VIEW_WIDTH = 360
 const MOBILE_QUERY = '(max-width: 767px)'
 const CAMERA_FOLLOW_SPEED = 4
 const WALL_HEIGHT = 148
-const BACKGROUND_URL = '/rooms/room_a.png'
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`
+const BACKGROUND_URL = asset('rooms/room_a.png')
 const WINDOW_NAMES = ['night', 'dawn', 'day', 'sunset'] as const
 type WindowName = (typeof WINDOW_NAMES)[number]
 const WINDOW_POSITION = { x: 32, y: 22 }
@@ -19,13 +20,13 @@ function windowForHour(hour: number): WindowName {
 }
 const SPEED = 80
 const ACTION_MS = 1800
-const IDLE_URL = '/sprites/processed/idle.png'
+const IDLE_URL = asset('sprites/processed/idle.png')
 const IDLE_SEQUENCE = [0, 1, 0, 1, 0, 2, 0, 1, 0, 3]
 const IDLE_FRAME_MS = 600
 const WAVE_FRAME = 3
-const WALK_URL = '/sprites/processed/walk_side_v2.png'
-const WALK_FRONT_URL = '/sprites/processed/walk_front.png'
-const WALK_BACK_URL = '/sprites/processed/walk_back.png'
+const WALK_URL = asset('sprites/processed/walk_side_v2.png')
+const WALK_FRONT_URL = asset('sprites/processed/walk_front.png')
+const WALK_BACK_URL = asset('sprites/processed/walk_back.png')
 const WALK_FRAMES = 4
 const WALK_FRAME_MS = 140
 const SOURCE_CELL = 64
@@ -115,7 +116,7 @@ export function Room({ stats, canSend, onAction, onSend }: Props) {
     const windows = Object.fromEntries(
       WINDOW_NAMES.map((name) => {
         const image = new Image()
-        image.src = `/rooms/windows/${name}.png`
+        image.src = asset(`rooms/windows/${name}.png`)
         return [name, image]
       }),
     ) as Record<WindowName, HTMLImageElement>
@@ -124,7 +125,7 @@ export function Room({ stats, canSend, onAction, onSend }: Props) {
     const objects = Object.fromEntries(
       OBJECT_NAMES.map((name) => {
         const image = new Image()
-        image.src = `/rooms/objects/${name}.png`
+        image.src = asset(`rooms/objects/${name}.png`)
         return [name, image]
       }),
     ) as Record<ObjectName, HTMLImageElement>

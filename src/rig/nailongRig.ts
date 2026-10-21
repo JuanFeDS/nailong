@@ -53,7 +53,7 @@ export function loadRig(): RigImages {
   const images = {} as RigImages
   for (const name of PART_NAMES) {
     const image = new Image()
-    image.src = `/sprites/processed/parts/${name}.png`
+    image.src = `${import.meta.env.BASE_URL}sprites/processed/parts/${name}.png`
     images[name] = image
   }
   return images
