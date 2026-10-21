@@ -493,6 +493,137 @@ button {
   color: var(--muted);
 }
 
+/* ---------- Viaje de Nailong ---------- */
+
+.sprite--walk {
+  background-image: url('/sprites/processed/walk_side_v2.png');
+}
+
+@keyframes step {
+  to {
+    background-position-x: calc(-256px * var(--s));
+  }
+}
+
+@keyframes march {
+  from {
+    left: -140px;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@keyframes knock {
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes dots {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+}
+
+.room.scene {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 20px;
+  overflow: hidden;
+  background: var(--bg-lift);
+  text-align: center;
+}
+
+.scene__title {
+  margin: 0;
+  max-width: 16ch;
+  font-family: var(--font-display);
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.scene__sub {
+  margin: 8px 0 0;
+  font-weight: 600;
+  color: var(--teal);
+}
+
+.dots::after {
+  content: '...';
+}
+
+.road {
+  position: relative;
+  width: 100%;
+  height: 130px;
+  border-bottom: 6px solid color-mix(in oklch, var(--ink) 22%, transparent);
+}
+
+.road__walker {
+  position: absolute;
+  bottom: 0;
+  left: calc(50% - 64px);
+}
+
+.knock {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.knock__door {
+  width: 132px;
+  image-rendering: pixelated;
+}
+
+.knock__bubble {
+  position: absolute;
+  top: -16px;
+  left: 0;
+  padding: 6px 12px;
+  background: var(--sun);
+  color: var(--on-sun);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 12px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sprite--walking {
+    animation: step 0.5s steps(4) infinite;
+  }
+
+  .road__walker {
+    left: -140px;
+    animation: march 7s linear infinite;
+  }
+
+  .dots::after {
+    animation: dots 1.4s steps(4) infinite;
+  }
+
+  .knock__bubble {
+    animation: knock 0.5s steps(2) infinite;
+  }
+}
+
 /* ---------- Entrada ---------- */
 
 @keyframes rise {
@@ -528,7 +659,8 @@ button {
 /* ---------- Responsive ---------- */
 
 @media (max-width: 767px) {
-  .room.away {
+  .room.away,
+  .room.scene {
     aspect-ratio: 1 / 1;
   }
 }
