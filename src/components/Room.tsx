@@ -7,12 +7,19 @@ const HEIGHT = 360
 const MOBILE_VIEW_WIDTH = 360
 const MOBILE_QUERY = '(max-width: 767px)'
 const CAMERA_FOLLOW_SPEED = 4
+const MANUAL_PAN_MS = 6000
+const PAN_STEP = 150
+const EDGE_ZONE = 32
+const DRAG_THRESHOLD = 8
+const ARROW_TOP = 170
+const ARROW_HEIGHT = 90
 const WALL_HEIGHT = 148
 const BACKGROUND_URL = asset('rooms/room_a.png')
 const WINDOW_POSITION = { x: 32, y: 22 }
 const SPEED = 80
 const EAT_URL = asset('sprites/processed/eat.png')
-const EAT_FRAMES = 8
+const PLAY_URL = asset('sprites/processed/play.png')
+const ACTION_FRAMES = 8
 const SLEEP_URL = asset('sprites/processed/sleep.png')
 const SLEEP_FRAMES = 8
 const SLEEP_INSET = 16
@@ -128,6 +135,8 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
     walkBackSprite.src = WALK_BACK_URL
     const eatSprite = new Image()
     eatSprite.src = EAT_URL
+    const playSprite = new Image()
+    playSprite.src = PLAY_URL
     const sleepSprite = new Image()
     sleepSprite.src = SLEEP_URL
     const objects = Object.fromEntries(
@@ -166,13 +175,64 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       cameraX = clampCamera(walker.x)
     }
 
+    let manualUntil = 0
+    const maxCamera = () => WIDTH - viewWidth
+    const panTo = (x: number) => {
+      cameraX = Math.min(maxCamera(), Math.max(0, x))
+      manualUntil = performance.now() + MANUAL_PAN_MS
+    }
+
+    let pointerActive = false
+    let dragging = false
+    let suppressClick = false
+    let dragStartX = 0
+    let dragStartCamera = 0
+
+    const handlePointerDown = (event: PointerEvent) => {
+      pointerActive = true
+      dragging = false
+      dragStartX = event.clientX
+      dragStartCamera = cameraX
+    }
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!pointerActive || viewWidth >= WIDTH) return
+      const deltaX = event.clientX - dragStartX
+      if (!dragging && Math.abs(deltaX) > DRAG_THRESHOLD) dragging = true
+      if (dragging) {
+        const rect = canvas.getBoundingClientRect()
+        panTo(dragStartCamera - (deltaX / rect.width) * viewWidth)
+      }
+    }
+    const handlePointerEnd = () => {
+      pointerActive = false
+      if (dragging) {
+        suppressClick = true
+        window.setTimeout(() => {
+          suppressClick = false
+        }, 0)
+      }
+      dragging = false
+    }
+
     const handleClick = (event: MouseEvent) => {
+      if (suppressClick) return
+      const rect = canvas.getBoundingClientRect()
+      const viewX = ((event.clientX - rect.left) / rect.width) * viewWidth
+      if (viewWidth < WIDTH) {
+        if (viewX < EDGE_ZONE && cameraX > 1) {
+          panTo(cameraX - PAN_STEP)
+          return
+        }
+        if (viewX > viewWidth - EDGE_ZONE && cameraX < maxCamera() - 1) {
+          panTo(cameraX + PAN_STEP)
+          return
+        }
+      }
       if (latest.current.sleeping) {
         latest.current.onBlockedTap()
         return
       }
-      const rect = canvas.getBoundingClientRect()
-      const clickX = ((event.clientX - rect.left) / rect.width) * viewWidth + cameraX
+      const clickX = viewX + cameraX
       const clickY = ((event.clientY - rect.top) / rect.height) * HEIGHT
       if (performance.now() < walker.busyUntil) return
 
@@ -195,6 +255,11 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       }
     }
     canvas.addEventListener('click', handleClick)
+    canvas.addEventListener('pointerdown', handlePointerDown)
+    canvas.addEventListener('pointermove', handlePointerMove)
+    canvas.addEventListener('pointerup', handlePointerEnd)
+    canvas.addEventListener('pointercancel', handlePointerEnd)
+    canvas.addEventListener('pointerleave', handlePointerEnd)
     applyView()
     mobileQuery.addEventListener('change', applyView)
 
@@ -250,7 +315,9 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       const busy = time < walker.busyUntil ? walker.busyTask : null
       const walking = walker.target !== null
       const mood = moodOf(latest.current.stats)
-      const hop = busy === 'play' ? Math.abs(Math.sin(time / 150)) * 12 : 0
+      const strip = busy === 'feed' ? eatSprite : busy === 'play' ? playSprite : null
+      const acting = strip !== null && strip.complete && strip.naturalWidth > 0
+      const hop = busy === 'play' && !acting ? Math.abs(Math.sin(time / 150)) * 12 : 0
       const directional = walker.heading === 'front' ? walkFrontSprite : walker.heading === 'back' ? walkBackSprite : walkSprite
       const walkSheet = directional.naturalWidth > 0 ? directional : walkSprite
       const useWalkFrames = walking && !busy && walkSheet.complete && walkSheet.naturalWidth > 0
@@ -263,24 +330,24 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       context.ellipse(baseX, walker.y - 2, 40, 9, 0, 0, Math.PI * 2)
       context.fill()
 
-      const eating = busy === 'feed' && eatSprite.complete && eatSprite.naturalWidth > 0
-      const eatWidth = eatSprite.naturalWidth / EAT_FRAMES
-      const spriteTop = eating ? eatSprite.naturalHeight * SPRITE_SCALE : SPRITE_SIZE
+      const actionSheet = strip as HTMLImageElement
+      const actionWidth = acting ? actionSheet.naturalWidth / ACTION_FRAMES : 0
+      const spriteTop = acting ? actionSheet.naturalHeight * SPRITE_SCALE : SPRITE_SIZE
 
-      if (eating || useWalkFrames || (sprite.complete && sprite.naturalWidth > 0)) {
+      if (acting || useWalkFrames || (sprite.complete && sprite.naturalWidth > 0)) {
         context.save()
         context.translate(baseX, baseY)
-        context.scale(eating || (useWalkFrames && walkSheet !== walkSprite) ? 1 : walker.facing, 1)
+        context.scale(acting || (useWalkFrames && walkSheet !== walkSprite) ? 1 : walker.facing, 1)
         if (busy === 'sleep') context.rotate(-0.15 * walker.facing)
         context.globalAlpha = busy === 'sleep' ? 0.75 : 1
         context.filter = mood === 'weak' || mood === 'sad' ? 'saturate(0.45)' : 'none'
-        if (eating) {
-          const progress = 1 - (walker.busyUntil - time) / ACTION_DURATION.feed
-          const frame = Math.min(EAT_FRAMES - 1, Math.max(0, Math.floor(progress * EAT_FRAMES)))
+        if (acting) {
+          const progress = 1 - (walker.busyUntil - time) / ACTION_DURATION[walker.busyTask as Task]
+          const frame = Math.min(ACTION_FRAMES - 1, Math.max(0, Math.floor(progress * ACTION_FRAMES)))
           context.drawImage(
-            eatSprite,
-            frame * eatWidth, 0, eatWidth, eatSprite.naturalHeight,
-            -(eatWidth * SPRITE_SCALE) / 2, -spriteTop, eatWidth * SPRITE_SCALE, spriteTop,
+            actionSheet,
+            frame * actionWidth, 0, actionWidth, actionSheet.naturalHeight,
+            -(actionWidth * SPRITE_SCALE) / 2, -spriteTop, actionWidth * SPRITE_SCALE, spriteTop,
           )
         } else if (useWalkFrames) {
           const frame = Math.floor(time / WALK_FRAME_MS) % WALK_FRAMES
@@ -382,13 +449,34 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
         context.fillStyle = NIGHT_TINT
         context.fillRect(0, 0, viewWidth, HEIGHT)
       }
+
+      if (viewWidth < WIDTH) {
+        const arrows: [string, number, boolean][] = [
+          ['‹', 0, cameraX > 1],
+          ['›', viewWidth - EDGE_ZONE, cameraX < maxCamera() - 1],
+        ]
+        context.font = '36px monospace'
+        context.textAlign = 'center'
+        context.textBaseline = 'middle'
+        for (const [glyph, left, visible] of arrows) {
+          if (!visible) continue
+          context.fillStyle = 'rgba(15, 8, 8, 0.45)'
+          context.fillRect(left, ARROW_TOP, EDGE_ZONE, ARROW_HEIGHT)
+          context.fillStyle = '#ffd84d'
+          context.fillText(glyph, left + EDGE_ZONE / 2, ARROW_TOP + ARROW_HEIGHT / 2)
+        }
+        context.textAlign = 'start'
+        context.textBaseline = 'alphabetic'
+      }
     }
 
     const loop = (time: number) => {
       const delta = Math.min(0.05, (time - lastFrame) / 1000)
       lastFrame = time
       update(time, delta)
-      cameraX += (clampCamera(walker.x) - cameraX) * Math.min(1, delta * CAMERA_FOLLOW_SPEED)
+      if (performance.now() >= manualUntil) {
+        cameraX += (clampCamera(walker.x) - cameraX) * Math.min(1, delta * CAMERA_FOLLOW_SPEED)
+      }
       draw(time)
       animationId = requestAnimationFrame(loop)
     }
@@ -397,6 +485,11 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
     return () => {
       cancelAnimationFrame(animationId)
       canvas.removeEventListener('click', handleClick)
+      canvas.removeEventListener('pointerdown', handlePointerDown)
+      canvas.removeEventListener('pointermove', handlePointerMove)
+      canvas.removeEventListener('pointerup', handlePointerEnd)
+      canvas.removeEventListener('pointercancel', handlePointerEnd)
+      canvas.removeEventListener('pointerleave', handlePointerEnd)
       mobileQuery.removeEventListener('change', applyView)
     }
   }, [])

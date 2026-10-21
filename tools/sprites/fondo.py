@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
+BORDE_HALO = 2
+
 
 def quitar_fondo(
     imagen: Image.Image, tolerancia: int = 40, limpiar_halo: bool = True
@@ -35,9 +37,13 @@ def quitar_fondo(
 def quitar_halo(pixeles: np.ndarray) -> np.ndarray:
     """Borra los píxeles de borde teñidos de magenta por el antialiasing.
 
-    Se distinguen del rosa de las mejillas porque tienen muy poco verde.
+    Se distinguen del rosa de las mejillas porque tienen muy poco verde. Solo
+    se borran los píxeles pegados al exterior, para no vaciar zonas internas
+    del mismo color, como el interior de una boca abierta.
     """
     rojo, verde, azul = pixeles[..., 0], pixeles[..., 1], pixeles[..., 2]
-    es_halo = (rojo > 150) & (verde < 120) & (azul >= 70)
-    pixeles[es_halo] = (0, 0, 0, 0)
+    parece_halo = (rojo > 150) & (verde < 120) & (azul >= 70)
+    transparente = pixeles[..., 3] == 0
+    junto_al_exterior = ndimage.binary_dilation(transparente, iterations=BORDE_HALO) & ~transparente
+    pixeles[parece_halo & junto_al_exterior] = (0, 0, 0, 0)
     return pixeles

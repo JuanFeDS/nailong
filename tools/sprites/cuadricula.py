@@ -79,6 +79,28 @@ def alinear_abajo(celdas: list[Image.Image]) -> list[Image.Image]:
     return alineadas
 
 
+def alinear_filas(celdas: list[Image.Image], columnas: int) -> list[Image.Image]:
+    """Iguala el suelo entre filas sin tocar la altura de cada frame dentro de su fila.
+
+    En cada fila el punto más bajo (pies apoyados) se toma como suelo. Así se
+    conservan los saltos y solo se corrige que la IA dibuje cada fila a otra
+    altura. Se recorta el vacío bajo el suelo común.
+    """
+    cajas = [celda.getchannel("A").getbbox() for celda in celdas]
+    suelos = [
+        max(caja[3] for caja in cajas[inicio : inicio + columnas])
+        for inicio in range(0, len(celdas), columnas)
+    ]
+    suelo_comun = max(suelos)
+    alineadas = []
+    for indice, celda in enumerate(celdas):
+        desfase = suelo_comun - suelos[indice // columnas]
+        nueva = Image.new("RGBA", celda.size, (0, 0, 0, 0))
+        nueva.paste(celda, (0, desfase))
+        alineadas.append(nueva.crop((0, 0, celda.width, suelo_comun)))
+    return alineadas
+
+
 def main() -> None:
     """Procesa la hoja y guarda la tira de frames."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -91,10 +113,11 @@ def main() -> None:
     parser.add_argument("--colores", type=int, default=48)
     parser.add_argument(
         "--alinear",
-        choices=["derecha", "pies", "abajo"],
+        choices=["derecha", "pies", "abajo", "filas"],
         help=(
             "derecha: borde inferior y derecho (objeto fijo); pies: centra los pies (personaje); "
-            "abajo: solo iguala el suelo, sin mover en horizontal"
+            "abajo: solo iguala el suelo, sin mover en horizontal; "
+            "filas: iguala el suelo entre filas y conserva los saltos"
         ),
     )
     argumentos = parser.parse_args()
@@ -107,6 +130,8 @@ def main() -> None:
         celdas = alinear_pies(celdas)
     elif argumentos.alinear == "abajo":
         celdas = alinear_abajo(celdas)
+    elif argumentos.alinear == "filas":
+        celdas = alinear_filas(celdas, argumentos.columnas)
     escala = argumentos.ancho_celda / celdas[0].width
     tamano = (argumentos.ancho_celda, round(celdas[0].height * escala))
     reducidas = cuantizar_compartido(

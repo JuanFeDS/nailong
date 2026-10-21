@@ -301,6 +301,7 @@ button {
 }
 
 .room {
+  touch-action: pan-y;
   width: 100%;
   aspect-ratio: 16 / 9;
   image-rendering: pixelated;
