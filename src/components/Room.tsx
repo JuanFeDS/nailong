@@ -1,12 +1,12 @@
 import { useEffect, useRef } from 'react'
 import type { Action, Stats } from '../hooks/useNailong'
+import { asset } from '../lib/asset'
 const WIDTH = 640
 const HEIGHT = 360
 const MOBILE_VIEW_WIDTH = 360
 const MOBILE_QUERY = '(max-width: 767px)'
 const CAMERA_FOLLOW_SPEED = 4
 const WALL_HEIGHT = 148
-const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`
 const BACKGROUND_URL = asset('rooms/room_a.png')
 const WINDOW_NAMES = ['night', 'dawn', 'day', 'sunset'] as const
 type WindowName = (typeof WINDOW_NAMES)[number]
