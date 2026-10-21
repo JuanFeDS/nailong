@@ -515,8 +515,8 @@ button {
 }
 
 @keyframes knock {
-  50% {
-    transform: translateY(-6px);
+  to {
+    background-position-x: calc(-736px * var(--k));
   }
 }
 
@@ -581,28 +581,15 @@ button {
 }
 
 .knock {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: 4px;
-}
-
-.knock__door {
-  width: 132px;
+  --k: 2;
+  width: calc(92px * var(--k));
+  height: calc(123px * var(--k));
+  background: url('/sprites/processed/knock.png') 0 0 / calc(736px * var(--k)) calc(123px * var(--k)) no-repeat;
   image-rendering: pixelated;
 }
 
-.knock__bubble {
-  position: absolute;
-  top: -16px;
-  left: 0;
-  padding: 6px 12px;
-  background: var(--sun);
-  color: var(--on-sun);
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 700;
-  border-radius: 12px;
+.room.scene--door {
+  aspect-ratio: auto;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -619,8 +606,8 @@ button {
     animation: dots 1.4s steps(4) infinite;
   }
 
-  .knock__bubble {
-    animation: knock 0.5s steps(2) infinite;
+  .knock {
+    animation: knock 1.6s steps(8) infinite;
   }
 }
 
