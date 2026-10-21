@@ -25,6 +25,16 @@ function decayedStats(row: NailongRow, now: number): Stats {
   }
 }
 
+export type Phase = 'home' | 'visiting' | 'incoming' | 'knocking' | 'outgoing' | 'waiting'
+
+function phaseOf(row: NailongRow, userId: string, now: number): Phase {
+  const toMe = row.current_home === userId
+  if ((row.status ?? 'home') === 'home') return toMe ? 'home' : 'visiting'
+  const arrived = row.arrives_at !== null && now >= new Date(row.arrives_at).getTime()
+  if (toMe) return arrived ? 'knocking' : 'incoming'
+  return arrived ? 'waiting' : 'outgoing'
+}
+
 export function useNailong(userId: string) {
   const [row, setRow] = useState<NailongRow | null>(null)
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -61,19 +71,18 @@ export function useNailong(userId: string) {
 
   const doAction = (action: Action) => run(supabase.rpc('do_action', { action }))
   const send = () => run(supabase.rpc('send_nailong'))
+  const letIn = () => run(supabase.rpc('let_in'))
 
-  const isHome = row?.current_home === userId
   const hostName = profiles.find((profile) => profile.id === row?.current_home)?.display_name
   const myName = profiles.find((profile) => profile.id === userId)?.display_name
   const otherName = profiles.find((profile) => profile.id !== userId)?.display_name
-  const sendAvailableAt = row?.last_sent_at
-    ? new Date(row.last_sent_at).getTime() + SEND_COOLDOWN_MS
-    : 0
+  const cooldownStart = row?.last_entered_at ?? row?.last_sent_at
+  const sendAvailableAt = cooldownStart ? new Date(cooldownStart).getTime() + SEND_COOLDOWN_MS : 0
 
   return {
     loaded: row !== null,
     stats: row ? decayedStats(row, now) : null,
-    isHome,
+    phase: row ? phaseOf(row, userId, now) : null,
     hostName,
     myName,
     otherName,
@@ -81,5 +90,6 @@ export function useNailong(userId: string) {
     error,
     doAction,
     send,
+    letIn,
   }
 }

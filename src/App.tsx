@@ -6,6 +6,7 @@ import { PixelIcon } from './components/PixelIcon'
 import { Room } from './components/Room'
 import { Sprite } from './components/Sprite'
 import { StatMeters } from './components/StatMeters'
+import { IncomingScene, KnockingScene } from './components/TravelScenes'
 import { useNailong } from './hooks/useNailong'
 import { supabase } from './lib/supabase'
 
@@ -30,10 +31,12 @@ function Loading() {
 }
 
 function Home({ userId }: { userId: string }) {
-  const { loaded, stats, isHome, hostName, myName, otherName, msUntilSend, error, doAction, send } = useNailong(userId)
+  const { loaded, stats, phase, hostName, myName, otherName, msUntilSend, error, doAction, send, letIn } =
+    useNailong(userId)
 
-  if (!loaded || !stats) return <Loading />
+  if (!loaded || !stats || !phase) return <Loading />
 
+  const isHome = phase === 'home'
   const canSend = msUntilSend === 0
   const remaining = canSend ? null : formatRemaining(msUntilSend)
 
@@ -50,10 +53,18 @@ function Home({ userId }: { userId: string }) {
         </button>
       </header>
 
-      {isHome ? (
-        <Room stats={stats} canSend={canSend} onAction={doAction} onSend={send} />
-      ) : (
-        <AwayRoom host={hostName} returnIn={remaining} />
+      {phase === 'home' && <Room stats={stats} canSend={canSend} onAction={doAction} onSend={send} />}
+      {phase === 'incoming' && <IncomingScene from={otherName} />}
+      {phase === 'knocking' && (
+        <>
+          <KnockingScene />
+          <button className="btn" onClick={letIn}>
+            Dejar pasar
+          </button>
+        </>
+      )}
+      {(phase === 'visiting' || phase === 'outgoing' || phase === 'waiting') && (
+        <AwayRoom variant={phase} host={hostName} returnIn={remaining} />
       )}
 
       <StatMeters stats={stats} />
