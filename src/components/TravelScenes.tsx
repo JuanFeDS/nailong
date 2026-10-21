@@ -1,7 +1,4 @@
-import { asset } from '../lib/asset'
 import { Sprite } from './Sprite'
-
-const WAVE_FRAME = 3
 
 export function IncomingScene({ from }: { from?: string }) {
   return (
@@ -25,11 +22,7 @@ export function IncomingScene({ from }: { from?: string }) {
 export function KnockingScene() {
   return (
     <div className="room scene scene--door">
-      <div className="knock">
-        <div className="knock__bubble">¡Toc, toc!</div>
-        <Sprite scale={2} frame={WAVE_FRAME} />
-        <img className="knock__door" src={asset('rooms/objects/door.png')} alt="Puerta" />
-      </div>
+      <div className="knock" role="img" aria-label="Nailong llamando a la puerta" />
       <div className="scene__text">
         <h2 className="scene__title">Nailong está en la puerta</h2>
       </div>
