@@ -18,7 +18,7 @@ export function AwayRoom({ host, returnIn }: Props) {
         </h2>
         <p className="away__text">
           <PixelIcon name="house" size={18} />
-          {returnIn ? `Puede volver en ${returnIn}` : 'Ya puede volver cuando quieran enviarlo'}
+          {returnIn ? `Vuelve en ${returnIn}` : 'Ya puede volver'}
         </p>
       </div>
     </div>

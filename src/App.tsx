@@ -11,17 +11,13 @@ import { supabase } from './lib/supabase'
 
 function formatRemaining(ms: number) {
   const totalSeconds = Math.ceil(ms / 1000)
-  const units: [number, string][] = [
-    [Math.floor(totalSeconds / 86_400), 'd'],
-    [Math.floor((totalSeconds % 86_400) / 3600), 'h'],
-    [Math.floor((totalSeconds % 3600) / 60), 'min'],
-    [totalSeconds % 60, 's'],
-  ]
-  const firstNonZero = units.findIndex(([value]) => value > 0)
-  return units
-    .slice(firstNonZero)
-    .map(([value, unit]) => `${value} ${unit}`)
-    .join(' ')
+  const days = Math.floor(totalSeconds / 86_400)
+  const hours = Math.floor((totalSeconds % 86_400) / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const clock = days || hours ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`
+  return days ? `${days} d ${clock}` : clock
 }
 
 function Loading() {
@@ -65,7 +61,7 @@ function Home({ userId }: { userId: string }) {
       {isHome && (
         <p className={canSend ? 'door door--open' : 'door'}>
           <PixelIcon name="door" size={20} />
-          {canSend ? `La puerta está lista para enviarlo con ${otherName ?? 'la otra persona'}` : `La puerta se abre en ${remaining}`}
+          {canSend ? `La puerta está lista para enviarlo con ${otherName ?? 'la otra persona'}` : `Puerta cerrada · ${remaining}`}
         </p>
       )}
 
