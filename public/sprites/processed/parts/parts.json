@@ -1,0 +1,34 @@
+{
+  "head": {
+    "width": 48,
+    "height": 44
+  },
+  "arm_near": {
+    "width": 23,
+    "height": 48
+  },
+  "arm_far": {
+    "width": 23,
+    "height": 48
+  },
+  "forearm_far": {
+    "width": 21,
+    "height": 50
+  },
+  "forearm_near": {
+    "width": 20,
+    "height": 47
+  },
+  "torso": {
+    "width": 67,
+    "height": 59
+  },
+  "leg_near": {
+    "width": 28,
+    "height": 55
+  },
+  "leg_far": {
+    "width": 28,
+    "height": 55
+  }
+}
