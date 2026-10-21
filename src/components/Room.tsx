@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { Action, Stats } from '../hooks/useNailong'
 import { asset } from '../lib/asset'
+import { WINDOW_NAMES, type WindowName } from '../lib/weather'
 const WIDTH = 640
 const HEIGHT = 360
 const MOBILE_VIEW_WIDTH = 360
@@ -8,16 +9,7 @@ const MOBILE_QUERY = '(max-width: 767px)'
 const CAMERA_FOLLOW_SPEED = 4
 const WALL_HEIGHT = 148
 const BACKGROUND_URL = asset('rooms/room_a.png')
-const WINDOW_NAMES = ['night', 'dawn', 'day', 'sunset'] as const
-type WindowName = (typeof WINDOW_NAMES)[number]
 const WINDOW_POSITION = { x: 32, y: 22 }
-
-function windowForHour(hour: number): WindowName {
-  if (hour >= 21 || hour < 5) return 'night'
-  if (hour < 8) return 'dawn'
-  if (hour < 17) return 'day'
-  return 'sunset'
-}
 const SPEED = 80
 const ACTION_MS = 1800
 const IDLE_URL = asset('sprites/processed/idle.png')
@@ -69,6 +61,7 @@ const PLACEMENTS: Placement[] = [
 interface Props {
   stats: Stats
   canSend: boolean
+  windowName: WindowName
   onAction: (action: Action) => void
   onSend: () => void
 }
@@ -95,10 +88,10 @@ function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 
   return 'idle'
 }
 
-export function Room({ stats, canSend, onAction, onSend }: Props) {
+export function Room({ stats, canSend, windowName, onAction, onSend }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latest = useRef({ stats, canSend, onAction, onSend })
-  latest.current = { stats, canSend, onAction, onSend }
+  const latest = useRef({ stats, canSend, windowName, onAction, onSend })
+  latest.current = { stats, canSend, windowName, onAction, onSend }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -287,7 +280,7 @@ export function Room({ stats, canSend, onAction, onSend }: Props) {
       if (background.complete && background.naturalWidth > 0) {
         context.drawImage(background, 0, 0, WIDTH, HEIGHT)
       }
-      const windowSprite = windows[windowForHour(new Date().getHours())]
+      const windowSprite = windows[latest.current.windowName]
       if (windowSprite.complete && windowSprite.naturalWidth > 0) {
         context.drawImage(
           windowSprite,

@@ -9,8 +9,10 @@ import { SoundToggle } from './components/SoundToggle'
 import { StatMeters } from './components/StatMeters'
 import { IncomingScene, KnockingScene } from './components/TravelScenes'
 import { type Action, useNailong } from './hooks/useNailong'
+import { useWeatherCode } from './hooks/useWeather'
 import { playSfx } from './lib/sound'
 import { supabase } from './lib/supabase'
+import { PLACES, pickWindow } from './lib/weather'
 
 const KNOCK_FIRST_MS = 850
 const KNOCK_CYCLE_MS = 1600
@@ -39,6 +41,9 @@ function Home({ userId }: { userId: string }) {
   const { loaded, stats, phase, hostName, myName, otherName, msUntilSend, error, doAction, send, letIn } =
     useNailong(userId)
 
+  const place = PLACES[(myName ?? '').toLowerCase()]
+  const weatherCode = useWeatherCode(place)
+
   useEffect(() => {
     if (phase !== 'knocking') return
     playSfx('arrive')
@@ -58,6 +63,8 @@ function Home({ userId }: { userId: string }) {
   const isHome = phase === 'home'
   const canSend = msUntilSend === 0
   const remaining = canSend ? null : formatRemaining(msUntilSend)
+
+  const windowName = pickWindow(new Date(), place?.latitude ?? 0, weatherCode)
 
   const act = (action: Action) => {
     playSfx(action)
@@ -86,7 +93,9 @@ function Home({ userId }: { userId: string }) {
         </button>
       </header>
 
-      {phase === 'home' && <Room stats={stats} canSend={canSend} onAction={act} onSend={sendWithSound} />}
+      {phase === 'home' && (
+        <Room stats={stats} canSend={canSend} windowName={windowName} onAction={act} onSend={sendWithSound} />
+      )}
       {phase === 'incoming' && <IncomingScene from={otherName} />}
       {phase === 'knocking' && (
         <>
