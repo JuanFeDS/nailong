@@ -20,15 +20,14 @@ const NOTICE_MS = 2500
 const KNOCK_FIRST_MS = 850
 const KNOCK_CYCLE_MS = 1600
 
-function formatRemaining(ms: number) {
-  const totalSeconds = Math.ceil(ms / 1000)
-  const days = Math.floor(totalSeconds / 86_400)
-  const hours = Math.floor((totalSeconds % 86_400) / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  const pad = (value: number) => String(value).padStart(2, '0')
-  const clock = days || hours ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`
-  return days ? `${days} d ${clock}` : clock
+function formatStay(ms: number) {
+  const totalMinutes = Math.floor(ms / 60_000)
+  const days = Math.floor(totalMinutes / 1440)
+  const hours = Math.floor((totalMinutes % 1440) / 60)
+  const minutes = totalMinutes % 60
+  if (days) return `${days} d ${hours} h`
+  if (hours) return `${hours} h ${minutes} min`
+  return `${minutes} min`
 }
 
 function Loading() {
@@ -41,7 +40,7 @@ function Loading() {
 }
 
 function Home({ userId }: { userId: string }) {
-  const { loaded, stats, phase, hostName, myName, otherName, msUntilSend, error, doAction, send, letIn } =
+  const { loaded, stats, phase, hostName, myName, otherName, stayMs, error, doAction, send, letIn } =
     useNailong(userId)
 
   const place = PLACES[(myName ?? '').toLowerCase()]
@@ -71,8 +70,7 @@ function Home({ userId }: { userId: string }) {
   if (!loaded || !stats || !phase) return <Loading />
 
   const isHome = phase === 'home'
-  const canSend = msUntilSend === 0
-  const remaining = canSend ? null : formatRemaining(msUntilSend)
+  const stay = stayMs === null ? null : formatStay(stayMs)
 
   const windowName = pickWindow(new Date(), place?.latitude ?? 0, weatherCode)
   const sleeping = isSleepTime(new Date())
@@ -108,7 +106,7 @@ function Home({ userId }: { userId: string }) {
       {phase === 'home' && (
         <Room
           stats={stats}
-          canSend={canSend}
+          canSend
           windowName={windowName}
           sleeping={sleeping}
           onBlockedTap={showSleepingNotice}
@@ -125,8 +123,8 @@ function Home({ userId }: { userId: string }) {
           </button>
         </>
       )}
-      {(phase === 'visiting' || phase === 'outgoing' || phase === 'waiting') && (
-        <AwayRoom variant={phase} host={hostName} returnIn={remaining} />
+      {(phase === 'visiting' || phase === 'outgoing' || phase === 'waiting' || phase === 'lost') && (
+        <AwayRoom variant={phase} host={hostName} stay={stay} />
       )}
 
       <StatMeters stats={stats} />
@@ -139,9 +137,16 @@ function Home({ userId }: { userId: string }) {
       )}
 
       {isHome && !sleeping && (
-        <p className={canSend ? 'door door--open' : 'door'}>
+        <p className="door door--open">
           <PixelIcon name="door" size={20} />
-          {canSend ? `La puerta está lista para enviarlo con ${otherName ?? 'la otra persona'}` : `Puerta cerrada · ${remaining}`}
+          La puerta está lista para enviarlo con {otherName ?? 'la otra persona'}
+        </p>
+      )}
+
+      {isHome && stay && (
+        <p className="door">
+          <PixelIcon name="house" size={20} />
+          Lleva {stay} en esta casa
         </p>
       )}
 
