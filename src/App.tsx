@@ -10,6 +10,7 @@ import { SoundToggle } from './components/SoundToggle'
 import { StatMeters } from './components/StatMeters'
 import { IncomingScene, KnockingScene } from './components/TravelScenes'
 import { type Action, useNailong } from './hooks/useNailong'
+import { useHouse } from './hooks/useHouse'
 import { useWeatherCode } from './hooks/useWeather'
 import { isSleepTime, WAKE_LABEL } from './lib/sleep'
 import { playSfx } from './lib/sound'
@@ -43,6 +44,9 @@ function Home({ userId }: { userId: string }) {
   const { loaded, stats, phase, hostName, myName, otherName, stayMs, error, doAction, send, letIn } =
     useNailong(userId)
 
+  const { items, moveItem } = useHouse(userId)
+  const [tinkering, setTinkering] = useState(false)
+
   const place = PLACES[(myName ?? '').toLowerCase()]
   const weatherCode = useWeatherCode(place)
   const [notice, setNotice] = useState<string | null>(null)
@@ -67,7 +71,7 @@ function Home({ userId }: { userId: string }) {
     }
   }, [phase])
 
-  if (!loaded || !stats || !phase) return <Loading />
+  if (!loaded || !stats || !phase || items.length === 0) return <Loading />
 
   const isHome = phase === 'home'
   const stay = stayMs === null ? null : formatStay(stayMs)
@@ -105,6 +109,9 @@ function Home({ userId }: { userId: string }) {
 
       {phase === 'home' && (
         <Room
+          items={items}
+          editing={tinkering}
+          onMoveItem={moveItem}
           stats={stats}
           canSend
           windowName={windowName}
@@ -126,6 +133,13 @@ function Home({ userId }: { userId: string }) {
       {(phase === 'visiting' || phase === 'outgoing' || phase === 'waiting' || phase === 'lost') && (
         <AwayRoom variant={phase} host={hostName} stay={stay} />
       )}
+
+      {isHome && (
+        <button className={tinkering ? 'btn' : 'ghost tinker'} onClick={() => setTinkering(!tinkering)}>
+          {tinkering ? 'Listo' : 'Trastear con la casa'}
+        </button>
+      )}
+      {isHome && tinkering && <p className="door door--open">Arrastra los objetos para cambiarlos de sitio</p>}
 
       <StatMeters stats={stats} />
 
