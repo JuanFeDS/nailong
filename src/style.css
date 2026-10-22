@@ -136,6 +136,10 @@ button {
   font-weight: 700;
 }
 
+.tinker {
+  width: 100%;
+}
+
 .ghost--icon {
   display: grid;
   place-items: center;
@@ -340,8 +344,8 @@ button {
 }
 
 .away__note {
-  width: 120px;
-  height: 120px;
+  height: 140px;
+  image-rendering: pixelated;
 }
 
 .away__title {
