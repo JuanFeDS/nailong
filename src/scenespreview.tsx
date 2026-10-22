@@ -33,8 +33,10 @@ createRoot(document.getElementById('root')!).render(
         <button className="btn">Dejar pasar</button>
       </>
     )}
-    {mode === 'outgoing' && <AwayRoom variant="outgoing" host="gabi" returnIn={null} />}
-    {mode === 'waiting' && <AwayRoom variant="waiting" host="gabi" returnIn={null} />}
+    {mode === 'outgoing' && <AwayRoom variant="outgoing" host="gabi" stay={null} />}
+    {mode === 'waiting' && <AwayRoom variant="waiting" host="gabi" stay={null} />}
+    {mode === 'lost' && <AwayRoom variant="lost" host="juan" stay={null} />}
+    {mode === 'visiting' && <AwayRoom variant="visiting" host="gabi" stay="5 h 12 min" />}
     {mode === 'topbar' && <TopbarPreview />}
   </main>,
 )
