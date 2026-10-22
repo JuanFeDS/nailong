@@ -46,8 +46,13 @@ export function useNailong(userId: string) {
   const [now, setNow] = useState(Date.now())
   const [error, setError] = useState<string | null>(null)
 
+  const refetchRow = useCallback(
+    () => supabase.from('nailong').select('*').single().then(({ data }) => data && setRow(data)),
+    [],
+  )
+
   useEffect(() => {
-    supabase.from('nailong').select('*').single().then(({ data }) => data && setRow(data))
+    refetchRow()
     supabase.from('profiles').select('*').then(({ data }) => data && setProfiles(data))
 
     const channel = supabase
@@ -58,21 +63,25 @@ export function useNailong(userId: string) {
       .subscribe()
 
     const timer = setInterval(() => setNow(Date.now()), 1000)
+    const refetchWhenVisible = () => document.visibilityState === 'visible' && refetchRow()
+    document.addEventListener('visibilitychange', refetchWhenVisible)
     return () => {
       clearInterval(timer)
+      document.removeEventListener('visibilitychange', refetchWhenVisible)
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [refetchRow])
 
   const run = useCallback(async (call: PromiseLike<{ data: unknown; error: { message: string } | null }>) => {
     const { data, error: rpcError } = await call
     if (rpcError) {
       setError(rpcError.message)
+      refetchRow()
       return
     }
     setError(null)
     setRow(data as NailongRow)
-  }, [])
+  }, [refetchRow])
 
   const doAction = (action: Action) => run(supabase.rpc('do_action', { action }))
   const feedWith = (food: string) => run(supabase.rpc('feed_nailong', { food }))
