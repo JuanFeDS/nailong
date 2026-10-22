@@ -7,3 +7,4 @@ dist
 /public/sprites/*.png
 /PROPUESTA_ANIMACIONES.md
 /.push-secrets.txt
+/.venv
