@@ -12,14 +12,13 @@ export interface NailongRow {
   last_updated_at: string
   current_home: string | null
   last_sent_at: string | null
-  status: 'home' | 'traveling'
+  status: 'home' | 'traveling' | 'lost'
   arrives_at: string | null
   last_entered_at: string | null
+  trip_times: string[]
 }
 
 export interface Profile {
   id: string
   display_name: string
 }
-
-export const SEND_COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000

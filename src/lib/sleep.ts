@@ -9,6 +9,13 @@ export const WAKE_LABEL = '8:00'
 export const AWAKE_RATES = { satiety: -4, happiness: -4, energy: -3 }
 export const ASLEEP_RATES = { satiety: -1.5, happiness: -1.5, energy: 7 }
 
+export function travelFactor(tripTimes: string[], now: number) {
+  const recent = tripTimes.filter((trip) => now - new Date(trip).getTime() < DAY_MS).length
+  if (recent >= 5) return 2
+  if (recent >= 3) return 1.5
+  return 1
+}
+
 function msOfColombianDay(timestamp: number) {
   const local = timestamp + COLOMBIA_OFFSET_MS
   return ((local % DAY_MS) + DAY_MS) % DAY_MS
