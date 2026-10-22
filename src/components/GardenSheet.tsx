@@ -10,6 +10,7 @@ interface Props {
   onPlant: () => void
   onWater: () => void
   onHarvest: () => void
+  onClear: () => void
   onClose: () => void
 }
 
@@ -17,7 +18,7 @@ const SEED_PRICE = 5
 const WATERINGS_NEEDED = 3
 const WITHER_WARNING_MS = 12 * 3_600_000
 
-export function GardenSheet({ plot, coins, now, error, onPlant, onWater, onHarvest, onClose }: Props) {
+export function GardenSheet({ plot, coins, now, error, onPlant, onWater, onHarvest, onClear, onClose }: Props) {
   const waitMs = plot.next_water_at ? new Date(plot.next_water_at).getTime() - now : 0
   const witherMs = plot.withers_at ? new Date(plot.withers_at).getTime() - now : 0
 
@@ -42,7 +43,7 @@ export function GardenSheet({ plot, coins, now, error, onPlant, onWater, onHarve
             </>
           )}
 
-          {plot.stage === 'sprout' && (
+          {(plot.stage === 'sprout' || plot.stage === 'growing') && (
             <>
               <p className="menu__hint">
                 Riegos: {plot.waterings}/{WATERINGS_NEEDED}
@@ -51,6 +52,16 @@ export function GardenSheet({ plot, coins, now, error, onPlant, onWater, onHarve
               <button className="menu__row" disabled={waitMs > 0} onClick={onWater}>
                 <PixelIcon name="drop" size={20} />
                 <span>{waitMs > 0 ? `Todavía húmedo · ${formatDuration(waitMs)}` : 'Regar'}</span>
+              </button>
+            </>
+          )}
+
+          {plot.stage === 'wilted' && (
+            <>
+              <p className="menu__hint">Se marchitó por falta de riego. Límpialo para volver a sembrar.</p>
+              <button className="menu__row" onClick={onClear}>
+                <PixelIcon name="drop" size={20} />
+                <span>Limpiar bancal</span>
               </button>
             </>
           )}

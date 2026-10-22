@@ -1,9 +1,24 @@
 import { useEffect, useRef } from 'react'
+import type { Plot } from '../hooks/useGarden'
 import type { Action, Stats } from '../hooks/useNailong'
 import { asset } from '../lib/asset'
+import {
+  clampPosition,
+  FLOORS,
+  type HouseItem,
+  type HouseStyle,
+  ITEM_DEFS,
+  ITEM_KINDS,
+  PLACE_WIDTH,
+  type ItemKind,
+  type Place,
+  ROOM_HEIGHT as HEIGHT,
+  ROOM_WIDTH as WIDTH,
+  type Task,
+  WALL_HEIGHT,
+  WALLS,
+} from '../lib/house'
 import { WINDOW_NAMES, type WindowName } from '../lib/weather'
-const WIDTH = 640
-const HEIGHT = 360
 const MOBILE_VIEW_WIDTH = 360
 const MOBILE_QUERY = '(max-width: 767px)'
 const CAMERA_FOLLOW_SPEED = 4
@@ -13,8 +28,6 @@ const EDGE_ZONE = 32
 const DRAG_THRESHOLD = 8
 const ARROW_TOP = 170
 const ARROW_HEIGHT = 90
-const WALL_HEIGHT = 148
-const BACKGROUND_URL = asset('rooms/room_a.png')
 const WINDOW_POSITION = { x: 32, y: 22 }
 const SPEED = 80
 const EAT_URL = asset('sprites/processed/eat.png')
@@ -38,19 +51,34 @@ const WALK_FRAME_MS = 140
 const SOURCE_CELL = 64
 const SPRITE_SIZE = 128
 
-type Task = Action | 'send'
+const ACTION_DURATION: Record<Task, number> = {
+  feed: 1800, play: 1800, sleep: 5000, send: 1800, patio: 700, room: 700, water: 2200, swing: 4800, soccer: 4400,
+}
+const SOCCER_URL = asset('sprites/processed/soccer.png')
+const KICK_PROGRESS = 0.52
+const FLIGHT_PROGRESS = 0.2
+const FLIGHT_ARC = 70
+const SWING_URL = asset('sprites/processed/swing_anim.png')
+const SWING_FRAMES = 7
+const SWING_CYCLES = 2
+const WATER_URL = asset('sprites/processed/water.png')
+const WATER_SIDE_OFFSET = 78
+const PATIO_URL = asset('rooms/patio.png')
+const PLOT_SPOTS = [
+  { slot: 0, x: 400, y: 338 },
+  { slot: 1, x: 520, y: 338 },
+  { slot: 2, x: 640, y: 338 },
+]
 
-const ACTION_DURATION: Record<Task, number> = { feed: 1800, play: 1800, sleep: 5000, send: 1800 }
-
-const OBJECT_NAMES = [
-  'bed', 'bowl', 'ball', 'door', 'rug', 'plant',
-  'bookshelf', 'clock', 'wallshelf', 'toybox', 'armchair', 'sidetable', 'pouf',
-] as const
-type ObjectName = (typeof OBJECT_NAMES)[number]
 const OBJECT_SCALE = 2
+const SWING_SCALE = 2.6
+const scaleOf = (name: ItemKind) => (name === 'swing' ? SWING_SCALE : OBJECT_SCALE)
+const EDIT_OUTLINE = 'rgba(255, 216, 77, 0.55)'
+const EDIT_OUTLINE_ACTIVE = '#ffd84d'
 
 interface Placement {
-  name: ObjectName
+  id: string
+  name: ItemKind
   task: Task | null
   cx: number
   baseY: number
@@ -58,23 +86,19 @@ interface Placement {
   flat?: boolean
 }
 
-const PLACEMENTS: Placement[] = [
-  { name: 'rug', task: null, cx: 360, baseY: 300, flat: true },
-  { name: 'clock', task: null, cx: 200, baseY: 86 },
-  { name: 'wallshelf', task: null, cx: 385, baseY: 100 },
-  { name: 'bookshelf', task: null, cx: 480, baseY: 168 },
-  { name: 'sidetable', task: null, cx: 200, baseY: 190 },
-  { name: 'pouf', task: null, cx: 470, baseY: 270 },
-  { name: 'armchair', task: null, cx: 585, baseY: 305 },
-  { name: 'toybox', task: null, cx: 200, baseY: 336 },
-  { name: 'plant', task: null, cx: 44, baseY: 340 },
-  { name: 'bed', task: 'sleep', cx: 100, baseY: 236, spot: { x: 100, y: 254 } },
-  { name: 'bowl', task: 'feed', cx: 500, baseY: 330, spot: { x: 500, y: 346 } },
-  { name: 'ball', task: 'play', cx: 300, baseY: 344, spot: { x: 300, y: 354 } },
-  { name: 'door', task: 'send', cx: 582, baseY: WALL_HEIGHT + 8, spot: { x: 582, y: 186 } },
-]
-
 interface Props {
+  items: HouseItem[]
+  waterTrigger: { id: number; slot: number } | null
+  onWaterDone: (slot: number) => void
+  plots: Plot[]
+  onPlotTap: (slot: number) => void
+  onFeedRequest: () => void
+  feedTrigger: number
+  place: Place
+  onTravel: (place: Place) => void
+  style: HouseStyle
+  editing: boolean
+  onMoveItem: (itemId: string, x: number, y: number) => void
   stats: Stats
   canSend: boolean
   windowName: WindowName
@@ -94,6 +118,7 @@ interface Walker {
   busyUntil: number
   busyTask: Task | null
   nextWanderAt: number
+  plotSlot: number
 }
 
 function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 'idle' {
@@ -106,10 +131,12 @@ function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 
   return 'idle'
 }
 
-export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }: Props) {
+export function Room({
+  items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend,
+}: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latest = useRef({ stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
-  latest.current = { stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
+  const latest = useRef({ items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
+  latest.current = { items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -122,8 +149,20 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
     walkSprite.src = WALK_URL
     const walkFrontSprite = new Image()
     walkFrontSprite.src = WALK_FRONT_URL
-    const background = new Image()
-    background.src = BACKGROUND_URL
+    const loadImages = <Id extends string>(ids: readonly { id: Id }[], folder: string) =>
+      Object.fromEntries(
+        ids.map(({ id }) => {
+          const image = new Image()
+          image.src = asset(`rooms/${folder}/${id}.png`)
+          return [id, image]
+        }),
+      ) as Record<Id, HTMLImageElement>
+    const patioImage = new Image()
+    patioImage.src = PATIO_URL
+    const horizon = () => WALL_HEIGHT[latest.current.place]
+    const roomWidth = () => PLACE_WIDTH[latest.current.place]
+    const wallImages = loadImages(WALLS, 'walls')
+    const floorImages = loadImages(FLOORS, 'floors')
     const windows = Object.fromEntries(
       WINDOW_NAMES.map((name) => {
         const image = new Image()
@@ -137,19 +176,62 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
     eatSprite.src = EAT_URL
     const playSprite = new Image()
     playSprite.src = PLAY_URL
+    const soccerSprite = new Image()
+    soccerSprite.src = SOCCER_URL
+    const swingSprite = new Image()
+    swingSprite.src = SWING_URL
+    const waterSprite = new Image()
+    waterSprite.src = WATER_URL
     const sleepSprite = new Image()
     sleepSprite.src = SLEEP_URL
     const objects = Object.fromEntries(
-      OBJECT_NAMES.map((name) => {
+      ITEM_KINDS.map((name) => {
         const image = new Image()
         image.src = asset(`rooms/objects/${name}.png`)
         return [name, image]
       }),
-    ) as Record<ObjectName, HTMLImageElement>
-    const sizeOf = (name: ObjectName) => ({
-      width: objects[name].naturalWidth * OBJECT_SCALE,
-      height: objects[name].naturalHeight * OBJECT_SCALE,
+    ) as Record<ItemKind, HTMLImageElement>
+    const sizeOf = (name: ItemKind) => ({
+      width: objects[name].naturalWidth * scaleOf(name),
+      height: objects[name].naturalHeight * scaleOf(name),
     })
+
+    let carried: { id: string; x: number; y: number } | null = null
+    const placements = (): Placement[] =>
+      latest.current.items.map((item) => {
+        const { task, spot, flat } = ITEM_DEFS[item.kind]
+        const x = carried?.id === item.id ? carried.x : item.x
+        const y = carried?.id === item.id ? carried.y : item.y
+        return {
+          id: item.id,
+          name: item.kind,
+          task,
+          cx: x,
+          baseY: y,
+          spot: spot ? { x: x + spot.dx, y: y + spot.dy } : undefined,
+          flat,
+        }
+      })
+    const plotImageOf = (slot: number) => {
+      const stage = latest.current.plots.find((plot) => plot.slot === slot)?.stage ?? 'empty'
+      return objects[`plot_${stage}` as ItemKind]
+    }
+    const plotBoxes = () =>
+      PLOT_SPOTS.filter((spot) => latest.current.plots.some((plot) => plot.slot === spot.slot && plot.unlocked)).map((spot) => {
+        const image = plotImageOf(spot.slot)
+        const width = image.naturalWidth * OBJECT_SCALE
+        const height = image.naturalHeight * OBJECT_SCALE
+        return { slot: spot.slot, left: spot.x - width / 2, right: spot.x + width / 2, top: spot.y - height, bottom: spot.y, image, width, height, x: spot.x, y: spot.y }
+      })
+    const covers = (item: Placement, pointX: number, pointY: number) => {
+      const { width, height } = sizeOf(item.name)
+      return (
+        pointX >= item.cx - width / 2 &&
+        pointX <= item.cx + width / 2 &&
+        pointY >= item.baseY - height &&
+        pointY <= item.baseY
+      )
+    }
 
     const walker: Walker = {
       x: 320,
@@ -161,14 +243,15 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       busyUntil: 0,
       busyTask: null,
       nextWanderAt: 0,
+      plotSlot: 0,
     }
 
     const mobileQuery = window.matchMedia(MOBILE_QUERY)
-    let viewWidth = WIDTH
+    let viewWidth = Math.min(roomWidth(), WIDTH)
     let cameraX = 0
-    const clampCamera = (x: number) => Math.min(WIDTH - viewWidth, Math.max(0, x - viewWidth / 2))
+    const clampCamera = (x: number) => Math.min(roomWidth() - viewWidth, Math.max(0, x - viewWidth / 2))
     const applyView = () => {
-      viewWidth = mobileQuery.matches ? MOBILE_VIEW_WIDTH : WIDTH
+      viewWidth = mobileQuery.matches ? MOBILE_VIEW_WIDTH : Math.min(roomWidth(), WIDTH)
       canvas.width = viewWidth
       canvas.height = HEIGHT
       canvas.style.aspectRatio = `${viewWidth} / ${HEIGHT}`
@@ -176,7 +259,7 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
     }
 
     let manualUntil = 0
-    const maxCamera = () => WIDTH - viewWidth
+    const maxCamera = () => roomWidth() - viewWidth
     const panTo = (x: number) => {
       cameraX = Math.min(maxCamera(), Math.max(0, x))
       manualUntil = performance.now() + MANUAL_PAN_MS
@@ -187,15 +270,44 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
     let suppressClick = false
     let dragStartX = 0
     let dragStartCamera = 0
+    let grab = { x: 0, y: 0 }
+
+    const toWorld = (event: PointerEvent | MouseEvent) => {
+      const rect = canvas.getBoundingClientRect()
+      return {
+        x: ((event.clientX - rect.left) / rect.width) * viewWidth + cameraX,
+        y: ((event.clientY - rect.top) / rect.height) * HEIGHT,
+      }
+    }
+    const itemAt = (pointX: number, pointY: number) =>
+      placements()
+        .sort((first, second) => (second.flat ? -1 : second.baseY) - (first.flat ? -1 : first.baseY))
+        .find((item) => covers(item, pointX, pointY))
 
     const handlePointerDown = (event: PointerEvent) => {
+      if (latest.current.editing) {
+        const point = toWorld(event)
+        const item = itemAt(point.x, point.y)
+        if (item) {
+          carried = { id: item.id, x: item.cx, y: item.baseY }
+          grab = { x: point.x - item.cx, y: point.y - item.baseY }
+          canvas.setPointerCapture(event.pointerId)
+          return
+        }
+      }
       pointerActive = true
       dragging = false
       dragStartX = event.clientX
       dragStartCamera = cameraX
     }
     const handlePointerMove = (event: PointerEvent) => {
-      if (!pointerActive || viewWidth >= WIDTH) return
+      if (carried) {
+        const point = toWorld(event)
+        const kind = latest.current.items.find((item) => item.id === carried?.id)?.kind
+        if (kind) carried = { id: carried.id, ...clampPosition(kind, latest.current.place, point.x - grab.x, point.y - grab.y) }
+        return
+      }
+      if (!pointerActive || viewWidth >= roomWidth()) return
       const deltaX = event.clientX - dragStartX
       if (!dragging && Math.abs(deltaX) > DRAG_THRESHOLD) dragging = true
       if (dragging) {
@@ -204,6 +316,14 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       }
     }
     const handlePointerEnd = () => {
+      if (carried) {
+        latest.current.onMoveItem(carried.id, carried.x, carried.y)
+        carried = null
+        suppressClick = true
+        window.setTimeout(() => {
+          suppressClick = false
+        }, 0)
+      }
       pointerActive = false
       if (dragging) {
         suppressClick = true
@@ -218,7 +338,7 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       if (suppressClick) return
       const rect = canvas.getBoundingClientRect()
       const viewX = ((event.clientX - rect.left) / rect.width) * viewWidth
-      if (viewWidth < WIDTH) {
+      if (viewWidth < roomWidth()) {
         if (viewX < EDGE_ZONE && cameraX > 1) {
           panTo(cameraX - PAN_STEP)
           return
@@ -228,6 +348,7 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
           return
         }
       }
+      if (latest.current.editing) return
       if (latest.current.sleeping) {
         latest.current.onBlockedTap()
         return
@@ -236,20 +357,23 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       const clickY = ((event.clientY - rect.top) / rect.height) * HEIGHT
       if (performance.now() < walker.busyUntil) return
 
-      const hit = PLACEMENTS.find((item) => {
-        if (!item.task) return false
-        const { width, height } = sizeOf(item.name)
-        return (
-          clickX >= item.cx - width / 2 &&
-          clickX <= item.cx + width / 2 &&
-          clickY >= item.baseY - height &&
-          clickY <= item.baseY
-        )
-      })
+      if (latest.current.place === 'patio') {
+        const plotHit = plotBoxes().find((box) => clickX >= box.left && clickX <= box.right && clickY >= box.top && clickY <= box.bottom)
+        if (plotHit) {
+          latest.current.onPlotTap(plotHit.slot)
+          return
+        }
+      }
+
+      const hit = placements().find((item) => item.task && covers(item, clickX, clickY))
+      if (hit?.task === 'feed') {
+        latest.current.onFeedRequest()
+        return
+      }
       if (hit?.spot) {
         walker.target = hit.spot
         walker.task = hit.task
-      } else if (clickY > WALL_HEIGHT) {
+      } else if (clickY > horizon()) {
         walker.target = { x: clickX, y: clickY }
         walker.task = null
       }
@@ -272,6 +396,8 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
         const finished = walker.busyTask
         walker.busyTask = null
         if (finished === 'send') latest.current.onSend()
+        else if (finished === 'water') latest.current.onWaterDone(walker.plotSlot)
+        else if (finished === 'patio' || finished === 'room') latest.current.onTravel(finished)
         else latest.current.onAction(finished)
       }
 
@@ -283,8 +409,8 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
 
       if (!walker.target && time > walker.nextWanderAt) {
         walker.target = {
-          x: 40 + Math.random() * (WIDTH - 80),
-          y: WALL_HEIGHT + 40 + Math.random() * (HEIGHT - WALL_HEIGHT - 50),
+          x: 40 + Math.random() * (roomWidth() - 80),
+          y: horizon() + 40 + Math.random() * (HEIGHT - horizon() - 50),
         }
         walker.nextWanderAt = time + 2500 + Math.random() * 4000
       }
@@ -315,7 +441,7 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       const busy = time < walker.busyUntil ? walker.busyTask : null
       const walking = walker.target !== null
       const mood = moodOf(latest.current.stats)
-      const strip = busy === 'feed' ? eatSprite : busy === 'play' ? playSprite : null
+      const strip = busy === 'feed' ? eatSprite : busy === 'play' ? playSprite : busy === 'water' ? waterSprite : busy === 'soccer' ? soccerSprite : null
       const acting = strip !== null && strip.complete && strip.naturalWidth > 0
       const hop = busy === 'play' && !acting ? Math.abs(Math.sin(time / 150)) * 12 : 0
       const directional = walker.heading === 'front' ? walkFrontSprite : walker.heading === 'back' ? walkBackSprite : walkSprite
@@ -376,7 +502,33 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       if (bubble) context.fillText(bubble, baseX - 16, baseY - spriteTop - 4)
     }
 
-    const bed = PLACEMENTS.find((item) => item.name === 'bed')!
+    const drawKickedBall = (ball: Placement, all: Placement[]) => {
+      const image = objects.soccerball
+      if (!image.complete || image.naturalWidth === 0) return
+      const { width, height } = sizeOf('soccerball')
+      const goal = all.find((item) => item.name === 'goal')
+      const progress = 1 - (walker.busyUntil - performance.now()) / ACTION_DURATION.soccer
+      const flight = Math.min(1, Math.max(0, (progress - KICK_PROGRESS) / FLIGHT_PROGRESS))
+      const targetX = goal ? goal.cx : ball.cx
+      const targetY = goal ? goal.baseY - 18 : ball.baseY
+      const x = ball.cx + (targetX - ball.cx) * flight
+      const y = ball.baseY + (targetY - ball.baseY) * flight - Math.sin(flight * Math.PI) * FLIGHT_ARC
+      context.drawImage(image, x - width / 2, y - height, width, height)
+    }
+    const swingingNow = (time: number) => time < walker.busyUntil && walker.busyTask === 'swing'
+    const drawSwing = (item: Placement) => {
+      if (!swingSprite.complete || swingSprite.naturalWidth === 0) return
+      const frameWidth = swingSprite.naturalWidth / SWING_FRAMES
+      const progress = 1 - (walker.busyUntil - performance.now()) / ACTION_DURATION.swing
+      const frame = Math.floor(Math.max(0, progress) * SWING_FRAMES * SWING_CYCLES) % SWING_FRAMES
+      const width = frameWidth * SWING_SCALE
+      const height = swingSprite.naturalHeight * SWING_SCALE
+      context.drawImage(
+        swingSprite,
+        frame * frameWidth, 0, frameWidth, swingSprite.naturalHeight,
+        item.cx - width / 2, item.baseY - height, width, height,
+      )
+    }
 
     const isSleepingOnBed = (time: number) =>
       sleepSprite.complete &&
@@ -384,6 +536,8 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       (latest.current.sleeping || (time < walker.busyUntil && walker.busyTask === 'sleep'))
 
     const drawSleeper = (time: number) => {
+      const bed = placements().find((item) => item.name === 'bed')
+      if (!bed) return
       const frameWidth = sleepSprite.naturalWidth / SLEEP_FRAMES
       const progress = latest.current.sleeping
         ? (time % NIGHT_LOOP_MS) / NIGHT_LOOP_MS
@@ -413,11 +567,21 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       context.clearRect(0, 0, viewWidth, HEIGHT)
       context.save()
       context.translate(-Math.round(cameraX), 0)
-      if (background.complete && background.naturalWidth > 0) {
-        context.drawImage(background, 0, 0, WIDTH, HEIGHT)
+      const wallImage = wallImages[latest.current.style.wall]
+      const floorImage = floorImages[latest.current.style.floor]
+      const inPatio = latest.current.place === 'patio'
+      if (inPatio) {
+        if (patioImage.complete && patioImage.naturalWidth > 0) context.drawImage(patioImage, 0, 0, roomWidth(), HEIGHT)
+      } else {
+        if (wallImage.complete && wallImage.naturalWidth > 0) {
+          context.drawImage(wallImage, 0, 0, WIDTH, WALL_HEIGHT.room)
+        }
+        if (floorImage.complete && floorImage.naturalWidth > 0) {
+          context.drawImage(floorImage, 0, WALL_HEIGHT.room, WIDTH, HEIGHT - WALL_HEIGHT.room)
+        }
       }
       const windowSprite = windows[latest.current.windowName]
-      if (windowSprite.complete && windowSprite.naturalWidth > 0) {
+      if (!inPatio && windowSprite.complete && windowSprite.naturalWidth > 0) {
         context.drawImage(
           windowSprite,
           WINDOW_POSITION.x, WINDOW_POSITION.y,
@@ -425,10 +589,32 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
         )
       }
 
+      const current = placements()
+      const bed = current.find((item) => item.name === 'bed')
+      const gardenDrawables =
+        latest.current.place === 'patio'
+          ? plotBoxes().map((box) => ({
+              depth: box.y,
+              draw: () => {
+                if (box.image.complete && box.image.naturalWidth > 0) {
+                  context.drawImage(box.image, box.left, box.top, box.width, box.height)
+                }
+              },
+            }))
+          : []
       const drawables = [
-        ...PLACEMENTS.map((item) => ({
+        ...gardenDrawables,
+        ...current.map((item) => ({
           depth: item.flat ? -1 : item.baseY,
           draw: () => {
+            if (item.name === 'swing' && swingingNow(time)) {
+              drawSwing(item)
+              return
+            }
+            if (item.name === 'soccerball' && time < walker.busyUntil && walker.busyTask === 'soccer') {
+              drawKickedBall(item, current)
+              return
+            }
             const image = objects[item.name]
             if (!image.complete || image.naturalWidth === 0) return
             const { width, height } = sizeOf(item.name)
@@ -436,11 +622,20 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
             if (item.task === 'send' && !latest.current.canSend) context.filter = 'brightness(0.55)'
             context.drawImage(image, item.cx - width / 2, item.baseY - height, width, height)
             context.restore()
+            if (latest.current.editing) {
+              context.strokeStyle = carried?.id === item.id ? EDIT_OUTLINE_ACTIVE : EDIT_OUTLINE
+              context.lineWidth = carried?.id === item.id ? 3 : 2
+              context.setLineDash([6, 4])
+              context.strokeRect(item.cx - width / 2, item.baseY - height, width, height)
+              context.setLineDash([])
+            }
           },
         })),
-        isSleepingOnBed(time)
+        bed && isSleepingOnBed(time)
           ? { depth: bed.baseY + 1, draw: () => drawSleeper(time) }
-          : { depth: walker.y, draw: () => drawNailong(time) },
+          : swingingNow(time)
+            ? { depth: -2, draw: () => undefined }
+            : { depth: walker.y, draw: () => drawNailong(time) },
       ].sort((first, second) => first.depth - second.depth)
       drawables.forEach((drawable) => drawable.draw())
       context.restore()
@@ -450,7 +645,7 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
         context.fillRect(0, 0, viewWidth, HEIGHT)
       }
 
-      if (viewWidth < WIDTH) {
+      if (viewWidth < roomWidth()) {
         const arrows: [string, number, boolean][] = [
           ['‹', 0, cameraX > 1],
           ['›', viewWidth - EDGE_ZONE, cameraX < maxCamera() - 1],
@@ -470,7 +665,47 @@ export function Room({ stats, canSend, windowName, sleeping, onBlockedTap, onAct
       }
     }
 
+    let currentPlace = latest.current.place
+    let lastFeedTrigger = latest.current.feedTrigger
+    let lastWaterId = latest.current.waterTrigger?.id ?? 0
+    const arriveAtDoor = () => {
+      const door = placements().find((item) => item.name === (currentPlace === 'patio' ? 'gate' : 'backdoor'))
+      walker.x = door?.spot?.x ?? 320
+      walker.y = door?.spot?.y ?? horizon() + 60
+      walker.target = null
+      walker.task = null
+      walker.busyUntil = 0
+      walker.busyTask = null
+      cameraX = clampCamera(walker.x)
+    }
+
     const loop = (time: number) => {
+      if (latest.current.place !== currentPlace) {
+        currentPlace = latest.current.place
+        applyView()
+        arriveAtDoor()
+      }
+      const water = latest.current.waterTrigger
+      if (water && water.id !== lastWaterId) {
+        lastWaterId = water.id
+        const box = plotBoxes().find((candidate) => candidate.slot === water.slot)
+        if (box && time >= walker.busyUntil && !latest.current.sleeping) {
+          walker.target = { x: box.x + WATER_SIDE_OFFSET, y: box.y - 8 }
+          walker.task = 'water'
+          walker.plotSlot = water.slot
+        } else {
+          latest.current.onWaterDone(water.slot)
+        }
+      }
+      if (latest.current.feedTrigger !== lastFeedTrigger) {
+        lastFeedTrigger = latest.current.feedTrigger
+        const bowl = placements().find((item) => item.task === 'feed')
+        if (bowl?.spot && time >= walker.busyUntil) {
+          walker.target = bowl.spot
+          walker.task = 'feed'
+        }
+      }
+      canvas.style.touchAction = latest.current.editing ? 'none' : ''
       const delta = Math.min(0.05, (time - lastFrame) / 1000)
       lastFrame = time
       update(time, delta)

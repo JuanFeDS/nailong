@@ -13,6 +13,7 @@ export interface NailongRow {
   current_home: string | null
   last_sent_at: string | null
   status: 'home' | 'traveling' | 'lost'
+  place: 'room' | 'patio'
   arrives_at: string | null
   last_entered_at: string | null
   trip_times: string[]

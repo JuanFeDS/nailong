@@ -10,7 +10,7 @@ const LABEL: Record<SoundMode, string> = {
   off: 'Sin sonido',
 }
 
-export function SoundToggle() {
+export function SoundToggle({ row }: { row?: boolean }) {
   const [mode, setMode] = useState<SoundMode>(getSoundMode)
 
   useEffect(() => {
@@ -26,8 +26,14 @@ export function SoundToggle() {
   }
 
   return (
-    <button className="ghost ghost--icon" onClick={cycle} aria-label={`Sonido: ${LABEL[mode]}`} title={LABEL[mode]}>
+    <button
+      className={row ? 'menu__row' : 'ghost ghost--icon'}
+      onClick={cycle}
+      aria-label={`Sonido: ${LABEL[mode]}`}
+      title={LABEL[mode]}
+    >
       <PixelIcon name={ICON[mode]} size={20} />
+      {row && <span>Sonido: {LABEL[mode]}</span>}
     </button>
   )
 }

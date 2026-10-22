@@ -5,7 +5,7 @@ self.addEventListener('push', (event) => {
       body: data.body || '',
       icon: 'icons/icon-192.png',
       badge: 'icons/icon-192.png',
-      tag: 'nailong-arrival',
+      tag: data.tag || 'nailong',
       renotify: true,
       data: { url: data.url || './' },
     }),

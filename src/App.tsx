@@ -1,18 +1,23 @@
 import type { Session } from '@supabase/supabase-js'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { AwayRoom } from './components/AwayRoom'
+import { FoodPicker } from './components/FoodPicker'
+import { GardenSheet } from './components/GardenSheet'
 import { Login } from './components/Login'
-import { NotificationToggle } from './components/NotificationToggle'
+import { MenuSheet } from './components/MenuSheet'
 import { PixelIcon } from './components/PixelIcon'
 import { Room } from './components/Room'
 import { Sprite } from './components/Sprite'
-import { SoundToggle } from './components/SoundToggle'
 import { StatMeters } from './components/StatMeters'
 import { IncomingScene, KnockingScene } from './components/TravelScenes'
 import { type Action, useNailong } from './hooks/useNailong'
+import { useEconomy } from './hooks/useEconomy'
+import { useGarden } from './hooks/useGarden'
 import { useHouse } from './hooks/useHouse'
 import { useWeatherCode } from './hooks/useWeather'
+import { ITEM_LABELS } from './lib/house'
 import { isSleepTime, WAKE_LABEL } from './lib/sleep'
+import { formatDuration } from './lib/time'
 import { playSfx } from './lib/sound'
 import { supabase } from './lib/supabase'
 import { PLACES, pickWindow } from './lib/weather'
@@ -21,15 +26,6 @@ const NOTICE_MS = 2500
 const KNOCK_FIRST_MS = 850
 const KNOCK_CYCLE_MS = 1600
 
-function formatStay(ms: number) {
-  const totalMinutes = Math.floor(ms / 60_000)
-  const days = Math.floor(totalMinutes / 1440)
-  const hours = Math.floor((totalMinutes % 1440) / 60)
-  const minutes = totalMinutes % 60
-  if (days) return `${days} d ${hours} h`
-  if (hours) return `${hours} h ${minutes} min`
-  return `${minutes} min`
-}
 
 function Loading() {
   return (
@@ -41,11 +37,19 @@ function Loading() {
 }
 
 function Home({ userId }: { userId: string }) {
-  const { loaded, stats, phase, hostName, myName, otherName, stayMs, error, doAction, send, letIn } =
+  const { loaded, stats, phase, hostName, myName, otherName, stayMs, updatedAt, place: location, setPlace, error, doAction, feedWith, send, letIn } =
     useNailong(userId)
 
-  const { items, moveItem } = useHouse(userId)
+  const { items, moveItem, style, changeStyle, reload } = useHouse(userId)
+  const economy = useEconomy(updatedAt)
+  const garden = useGarden(updatedAt, economy.refresh)
+  const [foodPicking, setFoodPicking] = useState(false)
+  const [feedTrigger, setFeedTrigger] = useState(0)
+  const [plotSlot, setPlotSlot] = useState<number | null>(null)
+  const [waterTrigger, setWaterTrigger] = useState<{ id: number; slot: number } | null>(null)
+  const pendingFood = useRef<string | null>(null)
   const [tinkering, setTinkering] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const place = PLACES[(myName ?? '').toLowerCase()]
   const weatherCode = useWeatherCode(place)
@@ -56,6 +60,14 @@ function Home({ userId }: { userId: string }) {
     window.setTimeout(() => setNotice(null), NOTICE_MS)
   }
   const showSleepingNotice = () => showNotice('Shh, Nailong está durmiendo')
+
+  useEffect(() => {
+    if (phase !== 'home' || location !== 'patio') return
+    const bringInside = () => isSleepTime(new Date()) && setPlace('room')
+    bringInside()
+    const timer = window.setInterval(bringInside, 30_000)
+    return () => window.clearInterval(timer)
+  }, [phase, location])
 
   useEffect(() => {
     if (phase !== 'knocking') return
@@ -74,14 +86,30 @@ function Home({ userId }: { userId: string }) {
   if (!loaded || !stats || !phase || items.length === 0) return <Loading />
 
   const isHome = phase === 'home'
-  const stay = stayMs === null ? null : formatStay(stayMs)
+  const stay = stayMs === null ? null : formatDuration(stayMs)
 
   const windowName = pickWindow(new Date(), place?.latitude ?? 0, weatherCode)
   const sleeping = isSleepTime(new Date())
 
   const act = (action: Action) => {
-    playSfx(action)
-    doAction(action)
+    playSfx(action === 'swing' || action === 'soccer' ? 'play' : action)
+    if (action !== 'feed') {
+      doAction(action)
+      return
+    }
+    if (pendingFood.current) feedWith(pendingFood.current)
+    pendingFood.current = null
+  }
+  const pickFood = (food: string) => {
+    pendingFood.current = food
+    setFoodPicking(false)
+    setFeedTrigger((count) => count + 1)
+  }
+  const buy = async (kind: string) => {
+    const bought = await economy.buy(kind)
+    if (!bought) return
+    reload()
+    showNotice(`Comprado: ${ITEM_LABELS[bought.kind] ?? bought.kind}. Colócalo con el trasteo`)
   }
   const sendWithSound = () => {
     playSfx('send')
@@ -100,16 +128,48 @@ function Home({ userId }: { userId: string }) {
           <span className={isHome ? 'who__dot who__dot--home' : 'who__dot'} />
           Casa de {myName ?? '…'}
         </span>
-        <NotificationToggle userId={userId} onMessage={showNotice} />
-        <SoundToggle />
-        <button className="ghost" onClick={() => supabase.auth.signOut()}>
-          Salir
+        <span className="coins" title="Monedas">
+          <PixelIcon name="coin" size={18} />
+          {economy.wallet.coins}
+        </span>
+        <button className="ghost ghost--icon" onClick={() => setMenuOpen(true)} aria-label="Abrir el menú">
+          <PixelIcon name="menu" size={20} />
         </button>
       </header>
 
+      {menuOpen && (
+        <MenuSheet
+          userId={userId}
+          canTinker={isHome}
+          economy={economy}
+          garden={garden}
+          careOk={Math.min(stats.satiety, stats.happiness, stats.energy) > 50}
+          onBuy={buy}
+          style={style}
+          onStyle={changeStyle}
+          notice={notice}
+          onNotice={showNotice}
+          onTinker={() => {
+            setTinkering(true)
+            setMenuOpen(false)
+          }}
+          onSignOut={() => supabase.auth.signOut()}
+          onClose={() => setMenuOpen(false)}
+        />
+      )}
+
       {phase === 'home' && (
         <Room
-          items={items}
+          items={items.filter((item) => item.place === location)}
+          plots={garden.plots}
+          waterTrigger={waterTrigger}
+          onWaterDone={garden.water}
+          onPlotTap={setPlotSlot}
+          onFeedRequest={() => setFoodPicking(true)}
+          feedTrigger={feedTrigger}
+          place={location}
+          onTravel={setPlace}
+          style={style}
           editing={tinkering}
           onMoveItem={moveItem}
           stats={stats}
@@ -134,12 +194,14 @@ function Home({ userId }: { userId: string }) {
         <AwayRoom variant={phase} host={hostName} stay={stay} />
       )}
 
-      {isHome && (
-        <button className={tinkering ? 'btn' : 'ghost tinker'} onClick={() => setTinkering(!tinkering)}>
-          {tinkering ? 'Listo' : 'Trastear con la casa'}
-        </button>
+      {isHome && tinkering && (
+        <>
+          <p className="door door--open">Arrastra los objetos para cambiarlos de sitio</p>
+          <button className="btn" onClick={() => setTinkering(false)}>
+            Listo
+          </button>
+        </>
       )}
-      {isHome && tinkering && <p className="door door--open">Arrastra los objetos para cambiarlos de sitio</p>}
 
       <StatMeters stats={stats} />
 
@@ -164,7 +226,34 @@ function Home({ userId }: { userId: string }) {
         </p>
       )}
 
-      {notice && <p className="notice">{notice}</p>}
+      {foodPicking && (
+        <FoodPicker
+          pantry={garden.pantry}
+          foods={garden.foods}
+          now={Date.now()}
+          onPick={pickFood}
+          onClose={() => setFoodPicking(false)}
+        />
+      )}
+
+      {plotSlot !== null && garden.plots.find((plot) => plot.slot === plotSlot) && (
+        <GardenSheet
+          plot={garden.plots.find((plot) => plot.slot === plotSlot)!}
+          coins={economy.wallet.coins}
+          now={Date.now()}
+          error={garden.error}
+          onPlant={() => garden.plant(plotSlot)}
+          onWater={() => {
+            setWaterTrigger({ id: Date.now(), slot: plotSlot })
+            setPlotSlot(null)
+          }}
+          onHarvest={() => garden.harvest(plotSlot)}
+          onClear={() => garden.clear(plotSlot)}
+          onClose={() => setPlotSlot(null)}
+        />
+      )}
+
+      {notice && !menuOpen && <p className="notice">{notice}</p>}
 
       {error && (
         <p className="error" role="alert">

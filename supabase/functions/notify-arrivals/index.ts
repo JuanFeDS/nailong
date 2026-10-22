@@ -68,18 +68,26 @@ const ARRIVAL_PAYLOAD: Payload = {
   url: './',
 }
 
-const ESCAPE_PAYLOAD: Payload = {
-  title: '¡Nailong se escapó!',
-  body: 'Se aburrió y salió a dar una vuelta. Volverá en unas horas.',
-  tag: 'nailong-escape',
-  url: './',
+function coinsPhrase(amount: number, verb: string) {
+  return amount > 0 ? ` ${verb} ${amount} ${amount === 1 ? 'moneda' : 'monedas'}.` : ''
 }
 
-const RETURN_PAYLOAD: Payload = {
-  title: '¡Nailong volvió!',
-  body: 'Ya está de vuelta en casa.',
-  tag: 'nailong-escape',
-  url: './',
+function escapePayload(stolen: number): Payload {
+  return {
+    title: '¡Nailong se escapó!',
+    body: `Se aburrió y salió a dar una vuelta.${coinsPhrase(stolen, 'Se llevó')} Volverá en unas horas.`,
+    tag: 'nailong-escape',
+    url: './',
+  }
+}
+
+function returnPayload(refund: number): Payload {
+  return {
+    title: '¡Nailong volvió!',
+    body: `Ya está de vuelta en casa.${coinsPhrase(refund, 'Trajo de vuelta')}`,
+    tag: 'nailong-escape',
+    url: './',
+  }
 }
 
 const json = (body: unknown, status = 200) =>
@@ -142,7 +150,7 @@ Deno.serve(async (request) => {
 
   const { data: roaming } = await supabase.rpc('run_escape_check')
   if (roaming?.escaped || roaming?.returned) {
-    result.escape = await notify(supabase, roaming.home, roaming.escaped ? ESCAPE_PAYLOAD : RETURN_PAYLOAD)
+    result.escape = await notify(supabase, roaming.home, roaming.escaped ? escapePayload(roaming.stolen ?? 0) : returnPayload(roaming.refund ?? 0))
   }
 
   const { data: current } = await supabase.rpc('current_stats').single()

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ASLEEP_RATES, AWAKE_RATES, nightHours, travelFactor } from '../lib/sleep'
+import type { Place } from '../lib/house'
 import { type NailongRow, type Profile, supabase } from '../lib/supabase'
 
 export interface Stats {
@@ -8,7 +9,7 @@ export interface Stats {
   energy: number
 }
 
-export type Action = 'feed' | 'play' | 'sleep'
+export type Action = 'feed' | 'play' | 'sleep' | 'swing' | 'soccer'
 
 function decayedStats(row: NailongRow, now: number): Stats {
   const from = new Date(row.last_updated_at).getTime()
@@ -74,8 +75,10 @@ export function useNailong(userId: string) {
   }, [])
 
   const doAction = (action: Action) => run(supabase.rpc('do_action', { action }))
+  const feedWith = (food: string) => run(supabase.rpc('feed_nailong', { food }))
   const send = () => run(supabase.rpc('send_nailong'))
   const letIn = () => run(supabase.rpc('let_in'))
+  const setPlace = (place: Place) => run(supabase.rpc('set_place', { new_place: place }))
 
   const hostName = profiles.find((profile) => profile.id === row?.current_home)?.display_name
   const myName = profiles.find((profile) => profile.id === userId)?.display_name
@@ -90,8 +93,12 @@ export function useNailong(userId: string) {
     myName,
     otherName,
     stayMs,
+    updatedAt: row?.last_updated_at,
+    place: (row?.place ?? 'room') as Place,
+    setPlace,
     error,
     doAction,
+    feedWith,
     send,
     letIn,
   }

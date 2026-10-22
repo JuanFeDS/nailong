@@ -13,7 +13,7 @@ alter table public.house_items add constraint house_items_kind_check check (kind
 ));
 
 insert into public.house_items (house_id, kind, x, y, place)
-select id, 'backdoor', 60, 156, 'room' from public.profiles;
+select id, 'backdoor', 232, 156, 'room' from public.profiles;
 
 insert into public.house_items (house_id, kind, x, y, place)
 select id, 'gate', 320, 180, 'patio' from public.profiles;

@@ -5,6 +5,7 @@ import { PixelIcon } from './PixelIcon'
 interface Props {
   userId: string
   onMessage: (text: string) => void
+  row?: boolean
 }
 
 const MESSAGES: Record<Exclude<PushState, 'on' | 'off'>, string> = {
@@ -13,7 +14,7 @@ const MESSAGES: Record<Exclude<PushState, 'on' | 'off'>, string> = {
   denied: 'Los avisos están bloqueados en los ajustes del móvil',
 }
 
-export function NotificationToggle({ userId, onMessage }: Props) {
+export function NotificationToggle({ userId, onMessage, row }: Props) {
   const [state, setState] = useState<PushState>('off')
   const [busy, setBusy] = useState(false)
 
@@ -43,8 +44,14 @@ export function NotificationToggle({ userId, onMessage }: Props) {
 
   const label = state === 'on' ? 'Avisos activados' : 'Avisarme cuando llegue Nailong'
   return (
-    <button className="ghost ghost--icon" onClick={toggle} aria-label={label} title={label}>
+    <button
+      className={row ? 'menu__row' : 'ghost ghost--icon'}
+      onClick={toggle}
+      aria-label={label}
+      title={label}
+    >
       <PixelIcon name={state === 'on' ? 'bell' : 'bellOff'} size={20} />
+      {row && <span>{state === 'on' ? 'Avisos activados' : 'Avisos desactivados'}</span>}
     </button>
   )
 }

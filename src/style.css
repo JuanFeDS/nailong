@@ -136,8 +136,99 @@ button {
   font-weight: 700;
 }
 
-.tinker {
+.menu {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(10, 4, 4, 0.6);
+}
+
+.menu__sheet {
   width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 16px 28px;
+  border-radius: 22px 22px 0 0;
+  background: var(--bg-lift);
+  border-top: 4px solid color-mix(in oklch, var(--red) 55%, var(--bg));
+}
+
+.menu__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.menu__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--sun);
+}
+
+.menu__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.menu__heading {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.menu__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--ink) 8%, transparent);
+  color: var(--ink);
+  font-size: 0.98rem;
+  font-weight: 700;
+  text-align: left;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.swatch {
+  width: 64px;
+  height: 40px;
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background-color: var(--bg);
+  background-size: cover;
+  background-position: center;
+  image-rendering: pixelated;
+}
+
+.swatch--on {
+  border-color: var(--sun);
+}
+
+.menu__row svg {
+  color: var(--sun);
+}
+
+.menu__row:active {
+  background: color-mix(in oklch, var(--ink) 16%, transparent);
 }
 
 .ghost--icon {
@@ -694,4 +785,96 @@ button {
   .meters {
     gap: 32px;
   }
+}
+
+.coins {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--sun);
+}
+
+.btn--small {
+  width: auto;
+  min-height: 40px;
+  padding: 0 16px;
+  font-size: 0.9rem;
+  box-shadow: 0 4px 0 var(--sun-deep);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mission {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--ink) 8%, transparent);
+}
+
+.mission__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mission__label {
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.mission__progress {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.mission__done {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--teal);
+}
+
+.menu__hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 2px 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.shop {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.shop__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--ink) 8%, transparent);
+}
+
+.shop__image {
+  height: 72px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.shop__name {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: center;
 }

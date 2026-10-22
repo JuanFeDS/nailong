@@ -13,7 +13,7 @@ interface Props {
 const WAVE_FRAME = 3
 
 function Note() {
-  return <img className="away__note" src={asset('sprites/note.png')} alt="Una nota que dejó Nailong" />
+  return <img className="away__note" src={asset('sprites/processed/note.png')} alt="Una nota que dejó Nailong" />
 }
 
 export function AwayRoom({ variant, host, stay }: Props) {

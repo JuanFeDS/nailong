@@ -32,6 +32,22 @@ ANCHO_NATIVO = {
     "armchair": 44,
     "sidetable": 24,
     "pouf": 26,
+    "lamp": 24,
+    "fishtank": 36,
+    "desk": 48,
+    "guitar": 22,
+    "cactus": 24,
+    "wardrobe": 40,
+    "poster": 26,
+    "mirror": 24,
+    "backdoor": 43,
+    "gate": 56,
+    "swing": 100,
+    "goal": 60,
+    "soccerball": 20,
+    "plot_empty": 44,
+    "plot_sprout": 44,
+    "plot_ripe": 44,
 }
 
 
