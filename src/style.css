@@ -339,6 +339,11 @@ button {
   gap: 6px;
 }
 
+.away__note {
+  width: 120px;
+  height: 120px;
+}
+
 .away__title {
   margin: 0;
   max-width: 14ch;
