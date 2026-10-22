@@ -37,7 +37,7 @@ function Loading() {
 }
 
 function Home({ userId }: { userId: string }) {
-  const { loaded, stats, phase, hostName, myName, otherName, stayMs, updatedAt, place: location, setPlace, awakeUntil, error, doAction, feedWith, send, letIn } =
+  const { loaded, stats, phase, hostName, myName, otherName, stayMs, updatedAt, place: location, setPlace, error, doAction, feedWith, send, letIn } =
     useNailong(userId)
 
   const { items, moveItem, style, changeStyle, reload } = useHouse(userId)
@@ -48,8 +48,7 @@ function Home({ userId }: { userId: string }) {
   const [plotSlot, setPlotSlot] = useState<number | null>(null)
   const [waterTrigger, setWaterTrigger] = useState<{ id: number; slot: number } | null>(null)
   const pendingFood = useRef<string | null>(null)
-  const isAsleep = () =>
-    isSleepTime(new Date()) && !(awakeUntil && new Date(awakeUntil).getTime() > Date.now())
+  const isAsleep = () => isSleepTime(new Date())
   const [tinkering, setTinkering] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
