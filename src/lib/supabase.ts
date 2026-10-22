@@ -16,6 +16,7 @@ export interface NailongRow {
   place: 'room' | 'patio'
   arrives_at: string | null
   last_entered_at: string | null
+  awake_until: string | null
   trip_times: string[]
 }
 

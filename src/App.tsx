@@ -37,7 +37,7 @@ function Loading() {
 }
 
 function Home({ userId }: { userId: string }) {
-  const { loaded, stats, phase, hostName, myName, otherName, stayMs, updatedAt, place: location, setPlace, error, doAction, feedWith, send, letIn } =
+  const { loaded, stats, phase, hostName, myName, otherName, stayMs, updatedAt, place: location, setPlace, awakeUntil, error, doAction, feedWith, send, letIn } =
     useNailong(userId)
 
   const { items, moveItem, style, changeStyle, reload } = useHouse(userId)
@@ -48,6 +48,8 @@ function Home({ userId }: { userId: string }) {
   const [plotSlot, setPlotSlot] = useState<number | null>(null)
   const [waterTrigger, setWaterTrigger] = useState<{ id: number; slot: number } | null>(null)
   const pendingFood = useRef<string | null>(null)
+  const isAsleep = () =>
+    isSleepTime(new Date()) && !(awakeUntil && new Date(awakeUntil).getTime() > Date.now())
   const [tinkering, setTinkering] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
 
@@ -63,7 +65,7 @@ function Home({ userId }: { userId: string }) {
 
   useEffect(() => {
     if (phase !== 'home' || location !== 'patio') return
-    const bringInside = () => isSleepTime(new Date()) && setPlace('room')
+    const bringInside = () => isAsleep() && setPlace('room')
     bringInside()
     const timer = window.setInterval(bringInside, 30_000)
     return () => window.clearInterval(timer)
@@ -89,7 +91,7 @@ function Home({ userId }: { userId: string }) {
   const stay = stayMs === null ? null : formatDuration(stayMs)
 
   const windowName = pickWindow(new Date(), place?.latitude ?? 0, weatherCode)
-  const sleeping = isSleepTime(new Date())
+  const sleeping = isAsleep()
 
   const act = (action: Action) => {
     playSfx(action === 'swing' || action === 'soccer' ? 'play' : action)

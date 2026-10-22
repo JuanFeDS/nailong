@@ -94,6 +94,7 @@ export function useNailong(userId: string) {
     otherName,
     stayMs,
     updatedAt: row?.last_updated_at,
+    awakeUntil: row?.awake_until ?? null,
     place: (row?.place ?? 'room') as Place,
     setPlace,
     error,
