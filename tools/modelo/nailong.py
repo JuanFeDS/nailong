@@ -1,19 +1,20 @@
-"""Construye el modelo 3D de Nailong en Blender: piezas, esqueleto y ranuras.
+"""Construye el modelo 3D de Nailong en Blender: cuerpo, esqueleto y ranuras.
 
-Cada pieza es una malla rígida pegada a un hueso, como en la animación por
-recortes, pero en 3D: así se puede ver desde cualquier ángulo. Las prendas y
-las caras de cada estado de ánimo son piezas más, pegadas a la ranura que les
-corresponde y que se muestran u ocultan según la combinación pedida.
+El cuerpo es una sola malla suave: se arma con volúmenes simples que se funden
+entre sí como plastilina (metaballs), y el esqueleto la deforma. Los
+ojos, las garras, las caras de cada estado de ánimo y las prendas son piezas
+aparte pegadas a un hueso, que se muestran u ocultan según la combinación
+pedida.
 
 Medidas en unidades de Blender: Z hacia arriba, Nailong mira hacia -Y y los
-pies tocan Z = 0. La altura total ronda las 2,05 unidades.
+pies tocan Z = 0. La altura total ronda las 2 unidades.
 """
 
 from dataclasses import dataclass, field
 from math import radians
 
 import bpy
-from mathutils import Matrix, Vector
+from mathutils import Euler, Matrix, Vector
 
 
 @dataclass
@@ -32,12 +33,12 @@ MATERIALES = [
     "panza",
     "palma",
     "garra",
-    "pupila",
+    "esclerotica",
     "iris",
+    "pupila",
     "brillo",
     "boca",
-    "ceja",
-    "mejilla",
+    "parpado",
     "lagrima",
     "gorra",
     "visera",
@@ -46,14 +47,39 @@ MATERIALES = [
 HUESOS = {
     # nombre: (cabeza, cola, padre)
     "raiz": ((0, 0, 0), (0, 0, 0.3), None),
-    "cuerpo": ((0, 0, 0.5), (0, 0, 1.1), "raiz"),
-    "cabeza": ((0, 0, 1.1), (0, 0, 1.9), "cuerpo"),
-    "brazo.R": ((-0.38, -0.04, 1.0), (-0.49, -0.15, 0.66), "cuerpo"),
-    "brazo.L": ((0.38, -0.04, 1.0), (0.49, -0.15, 0.66), "cuerpo"),
-    "pierna.R": ((-0.2, 0, 0.42), (-0.2, 0, 0.08), "raiz"),
-    "pierna.L": ((0.2, 0, 0.42), (0.2, 0, 0.08), "raiz"),
-    "cola": ((0, 0.3, 0.45), (0, 0.75, 0.2), "cuerpo"),
+    "cuerpo": ((0, 0, 0.35), (0, 0, 1.15), "raiz"),
+    "cabeza": ((0, -0.12, 1.2), (0, -0.12, 2.0), "cuerpo"),
+    "brazo.R": ((-0.48, -0.1, 1.0), (-0.66, -0.26, 0.76), "cuerpo"),
+    "brazo.L": ((0.48, -0.1, 1.0), (0.66, -0.26, 0.76), "cuerpo"),
+    "pierna.R": ((-0.24, 0, 0.36), (-0.24, -0.02, 0.04), "raiz"),
+    "pierna.L": ((0.24, 0, 0.36), (0.24, -0.02, 0.04), "raiz"),
+    "cola": ((0, 0.3, 0.38), (0, 0.78, 0.1), "cuerpo"),
 }
+
+# Volúmenes que forman el cuerpo antes de fundirlos: (centro, radios, rotación).
+VOLUMENES = [
+    # Cabeza en forma de frijol, más larga hacia adelante y ancha abajo.
+    ((0, -0.14, 1.62), (0.5, 0.58, 0.42), (0, 0, 0)),
+    ((0, -0.24, 1.42), (0.5, 0.46, 0.3), (0, 0, 0)),
+    # Cuerpo en forma de pera.
+    ((0, 0.03, 0.78), (0.5, 0.43, 0.5), (0, 0, 0)),
+    ((0, 0.03, 0.5), (0.53, 0.46, 0.38), (0, 0, 0)),
+    # Piernas cortas y pies.
+    ((-0.24, 0, 0.2), (0.2, 0.21, 0.2), (0, 0, 0)),
+    ((0.24, 0, 0.2), (0.2, 0.21, 0.2), (0, 0, 0)),
+    ((-0.24, -0.08, 0.07), (0.18, 0.25, 0.08), (0, 0, 0)),
+    ((0.24, -0.08, 0.07), (0.18, 0.25, 0.08), (0, 0, 0)),
+    # Cola corta y gruesa.
+    ((0, 0.34, 0.3), (0.22, 0.32, 0.18), (30, 0, 0)),
+    ((0, 0.62, 0.14), (0.1, 0.18, 0.08), (30, 0, 0)),
+]
+
+# Brazos como cápsulas del hombro a la mano: (hombro, mano, radio).
+BRAZOS = [((-0.48, -0.1, 1.0), (-0.66, -0.26, 0.76), 0.1), ((0.48, -0.1, 1.0), (0.66, -0.26, 0.76), 0.1)]
+
+RESOLUCION = 0.02
+# Radio de la superficie de un metaball respecto a su radio de influencia.
+ALCANCE_METABALL = 0.575
 
 
 def color_identificador(indice: int) -> tuple[float, float, float, float]:
@@ -70,7 +96,7 @@ def crear_materiales() -> dict[str, bpy.types.Material]:
     return materiales
 
 
-def elipsoide(nombre, centro, radios, material, rotacion=(0, 0, 0), segmentos=32):
+def elipsoide(nombre, centro, radios, material=None, rotacion=(0, 0, 0), segmentos=32):
     """Crea un elipsoide suave con las transformaciones ya aplicadas."""
     bpy.ops.mesh.primitive_uv_sphere_add(segments=segmentos, ring_count=segmentos // 2)
     objeto = bpy.context.object
@@ -80,37 +106,84 @@ def elipsoide(nombre, centro, radios, material, rotacion=(0, 0, 0), segmentos=32
     objeto.location = centro
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     bpy.ops.object.shade_smooth()
-    objeto.data.materials.append(material)
+    if material:
+        objeto.data.materials.append(material)
     return objeto
 
 
-def cono(nombre, base, punta, radio, material):
-    """Crea un cono que va de la base a la punta, para púas y garras."""
-    direccion = Vector(punta) - Vector(base)
-    bpy.ops.mesh.primitive_cone_add(vertices=12, radius1=radio, depth=direccion.length)
-    objeto = bpy.context.object
-    objeto.name = nombre
-    objeto.rotation_euler = direccion.to_track_quat("Z", "Y").to_euler()
-    objeto.location = Vector(base) + direccion / 2
-    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
-    objeto.data.materials.append(material)
+def orientado(nombre, centro, radios, normal, material, giro=0.0):
+    """Crea un elipsoide cuyo eje Z sigue la normal de la superficie."""
+    objeto = elipsoide(nombre, (0, 0, 0), radios, material)
+    rotacion = Vector(normal).to_track_quat("Z", "Y").to_matrix().to_4x4()
+    objeto.data.transform(Matrix.Translation(centro) @ rotacion @ Matrix.Rotation(radians(giro), 4, "Z"))
     return objeto
+
+
+def capsula(inicio, fin, radio):
+    """Volumen alargado que une dos puntos, en el formato de VOLUMENES."""
+    inicio, fin = Vector(inicio), Vector(fin)
+    direccion = fin - inicio
+    return (inicio + fin) / 2, (radio, radio, direccion.length / 2 + radio * 0.6), direccion.to_track_quat("Z", "Y")
 
 
 def trazo(nombre, puntos, grosor, material):
-    """Crea un trazo curvo con volumen, para bocas y cejas."""
+    """Crea un trazo curvo con volumen, para bocas."""
     curva = bpy.data.curves.new(nombre, "CURVE")
     curva.dimensions = "3D"
     curva.bevel_depth = grosor
     curva.bevel_resolution = 2
-    linea = curva.splines.new("POLY")
-    linea.points.add(len(puntos) - 1)
-    for punto, coordenada in zip(linea.points, puntos):
-        punto.co = (*coordenada, 1)
+    linea = curva.splines.new("BEZIER")
+    linea.bezier_points.add(len(puntos) - 1)
+    for punto, coordenada in zip(linea.bezier_points, puntos):
+        punto.co = coordenada
+        punto.handle_left_type = punto.handle_right_type = "AUTO"
     curva.materials.append(material)
     objeto = bpy.data.objects.new(nombre, curva)
     bpy.context.collection.objects.link(objeto)
     return objeto
+
+
+def fundir(volumenes, nombre: str) -> bpy.types.Object:
+    """Funde los volúmenes (centro, radios, rotación) en una sola malla continua."""
+    datos = bpy.data.metaballs.new(nombre)
+    datos.resolution = datos.render_resolution = RESOLUCION
+    for centro, radios, rotacion in volumenes:
+        elemento = datos.elements.new()
+        elemento.type = "ELLIPSOID"
+        elemento.co = centro
+        elemento.radius = max(radios) / ALCANCE_METABALL
+        elemento.size_x, elemento.size_y, elemento.size_z = (radio / max(radios) for radio in radios)
+        elemento.rotation = rotacion
+    bola = bpy.data.objects.new(nombre, datos)
+    bpy.context.collection.objects.link(bola)
+    bpy.ops.object.select_all(action="DESELECT")
+    bola.select_set(True)
+    bpy.context.view_layer.objects.active = bola
+    bpy.ops.object.convert(target="MESH")
+    cuerpo = bpy.context.object
+    cuerpo.name = nombre
+    bpy.ops.object.shade_smooth()
+    return cuerpo
+
+
+def pintar_regiones(cuerpo, materiales):
+    """Asigna la panza y las palmas a las caras de la malla según su posición."""
+    for nombre in ("piel", "panza", "palma"):
+        cuerpo.data.materials.append(materiales[nombre])
+    manos = [Vector(mano) for _, mano, _ in BRAZOS]
+    for cara in cuerpo.data.polygons:
+        centro, normal = cara.center, cara.normal
+        panza = (centro.x / 0.36) ** 2 + ((centro.z - 0.66) / 0.42) ** 2 < 1 and normal.y < -0.25
+        palma = any((centro - mano).length < 0.1 and normal.y < 0.2 for mano in manos)
+        cara.material_index = 2 if palma else 1 if panza else 0
+
+
+def superficie(cuerpo, origen, direccion) -> tuple[Vector, Vector]:
+    """Lanza un rayo contra el cuerpo y devuelve el punto y la normal donde choca."""
+    acierto, punto, normal, _ = cuerpo.ray_cast(Vector(origen), Vector(direccion).normalized())
+    if not acierto:
+        raise ValueError(f"el rayo desde {origen} no toca el cuerpo")
+    return punto, normal
 
 
 def crear_esqueleto() -> bpy.types.Object:
@@ -130,8 +203,17 @@ def crear_esqueleto() -> bpy.types.Object:
     return esqueleto
 
 
+def deformar(cuerpo, esqueleto):
+    """Hace que el esqueleto deforme la malla, con pesos calculados solos."""
+    bpy.ops.object.select_all(action="DESELECT")
+    cuerpo.select_set(True)
+    esqueleto.select_set(True)
+    bpy.context.view_layer.objects.active = esqueleto
+    bpy.ops.object.parent_set(type="ARMATURE_AUTO")
+
+
 def pegar(objetos, esqueleto, hueso):
-    """Pega las piezas a un hueso sin moverlas de donde fueron modeladas."""
+    """Pega piezas rígidas a un hueso sin moverlas de donde fueron modeladas."""
     bpy.context.view_layer.update()
     matriz_hueso = esqueleto.matrix_world @ esqueleto.pose.bones[hueso].matrix
     matriz_cola = matriz_hueso @ Matrix.Translation((0, esqueleto.data.bones[hueso].length, 0))
@@ -142,75 +224,78 @@ def pegar(objetos, esqueleto, hueso):
         objeto.matrix_parent_inverse = matriz_cola.inverted()
 
 
-def construir_cuerpo(m):
-    torso = elipsoide("torso", (0, 0.02, 0.7), (0.47, 0.39, 0.5), m["piel"])
-    panza = elipsoide("panza", (0, -0.22, 0.68), (0.32, 0.2, 0.38), m["panza"])
-    return [torso, panza]
+def construir_cuerpo(materiales) -> bpy.types.Object:
+    volumenes = [
+        (centro, radios, Euler([radians(angulo) for angulo in rotacion]).to_quaternion())
+        for centro, radios, rotacion in VOLUMENES
+    ]
+    volumenes += [capsula(*brazo) for brazo in BRAZOS]
+    cuerpo = fundir(volumenes, "cuerpo")
+    pintar_regiones(cuerpo, materiales)
+    return cuerpo
 
 
-def construir_cabeza(m):
-    craneo = elipsoide("craneo", (0, 0, 1.56), (0.52, 0.47, 0.47), m["piel"])
-    hocico = elipsoide("hocico", (0, -0.24, 1.44), (0.34, 0.26, 0.24), m["piel"])
-    return [craneo, hocico]
-
-
-def construir_ojos(m, nombre, alto, inclinacion):
-    """Crea los dos ojos con pupila, iris y brillo; el alto cambia con el ánimo."""
-    piezas = []
+def construir_garras(cuerpo, m):
+    """Tres garras oscuras al frente de cada pie y en la punta de cada mano."""
+    pies, manos = [], {-1: [], 1: []}
     for lado in (-1, 1):
-        x = 0.21 * lado
-        rotacion = (0, -inclinacion * lado, 0)
+        for dedo in (-1, 0, 1):
+            punto, normal = superficie(cuerpo, (0.24 * lado + 0.09 * dedo, -2, 0.05), (0, 1, 0))
+            pies.append(orientado(f"garra_pie_{lado}_{dedo}", punto, (0.035, 0.03, 0.04), normal, m["garra"]))
+        hombro, mano, _ = BRAZOS[0 if lado < 0 else 1]
+        direccion = (Vector(mano) - Vector(hombro)).normalized()
+        for dedo in (-1, 0, 1):
+            origen = Vector(mano) + direccion * 0.6 + Vector((0.05 * dedo * lado, -0.03, 0.05 * dedo))
+            punto, normal = superficie(cuerpo, origen, -direccion)
+            manos[lado].append(orientado(f"garra_mano_{lado}_{dedo}", punto, (0.025, 0.025, 0.035), normal, m["garra"]))
+    return pies, manos
+
+
+def construir_ojos(cuerpo, m, prefijo):
+    """Ojos grandes: blanco, aro verde, pupila negra y un brillo."""
+    piezas, posiciones = [], []
+    for lado in (-1, 1):
+        punto, normal = superficie(cuerpo, (0.23 * lado, -2, 1.6), (0, 1, 0))
+        normal = (normal + Vector((0.12 * lado, 0, 0))).normalized()
+        frente = lambda distancia: punto + normal * distancia  # noqa: E731
         piezas += [
-            elipsoide(f"{nombre}_pupila_{lado}", (x, -0.41, 1.6), (0.1, 0.06, alto), m["pupila"], rotacion),
-            elipsoide(f"{nombre}_iris_{lado}", (x, -0.445, 1.585), (0.075, 0.04, alto * 0.7), m["iris"], rotacion),
-            elipsoide(f"{nombre}_brillo_{lado}", (x + 0.03, -0.47, 1.635), (0.035, 0.02, 0.035), m["brillo"]),
+            orientado(f"{prefijo}_esclerotica_{lado}", frente(-0.02), (0.13, 0.14, 0.05), normal, m["esclerotica"]),
+            orientado(f"{prefijo}_iris_{lado}", frente(0.008), (0.1, 0.11, 0.025), normal, m["iris"]),
+            orientado(f"{prefijo}_pupila_{lado}", frente(0.018), (0.075, 0.085, 0.02), normal, m["pupila"]),
+            orientado(f"{prefijo}_brillo_{lado}", frente(0.03) + Vector((0.03, 0, 0.04)), (0.025, 0.025, 0.01), normal, m["brillo"]),
         ]
-    return piezas
+        posiciones.append((punto, normal))
+    return piezas, posiciones
 
 
-def construir_caras(m) -> dict[str, list[bpy.types.Object]]:
+def construir_caras(cuerpo, m) -> dict[str, list[bpy.types.Object]]:
     """Crea una cara por estado de ánimo; solo una se muestra a la vez."""
-    feliz = construir_ojos(m, "feliz", 0.125, 0)
-    feliz.append(trazo("feliz_boca", [(-0.14, -0.48, 1.45), (-0.06, -0.5, 1.39), (0.06, -0.5, 1.39), (0.14, -0.48, 1.45)], 0.02, m["boca"]))
-    feliz += [elipsoide(f"feliz_mejilla_{lado}", (0.33 * lado, -0.36, 1.45), (0.07, 0.04, 0.04), m["mejilla"]) for lado in (-1, 1)]
+    def boca(prefijo, curvatura):
+        puntos = []
+        for x in (-0.13, 0, 0.13):
+            z = 1.42 + (curvatura if x == 0 else 0)
+            punto, normal = superficie(cuerpo, (x, -2, z), (0, 1, 0))
+            puntos.append(punto + normal * 0.01)
+        return trazo(f"{prefijo}_boca", puntos, 0.018, m["boca"])
 
-    triste = construir_ojos(m, "triste", 0.09, 0)
-    triste.append(trazo("triste_boca", [(-0.12, -0.48, 1.36), (-0.05, -0.5, 1.41), (0.05, -0.5, 1.41), (0.12, -0.48, 1.36)], 0.02, m["boca"]))
-    triste += [trazo(f"triste_ceja_{lado}", [(0.1 * lado, -0.47, 1.75), (0.27 * lado, -0.42, 1.7)], 0.022, m["ceja"]) for lado in (-1, 1)]
-    triste.append(elipsoide("triste_lagrima", (0.25, -0.43, 1.5), (0.035, 0.03, 0.05), m["lagrima"]))
+    feliz, _ = construir_ojos(cuerpo, m, "feliz")
+    feliz.append(boca("feliz", -0.05))
 
+    triste, ojos = construir_ojos(cuerpo, m, "triste")
+    triste.append(boca("triste", 0.035))
+    for lado, (punto, normal) in zip((-1, 1), ojos):
+        parpado = orientado(
+            f"triste_parpado_{lado}", punto + normal * 0.02 + Vector((0, 0, 0.1)), (0.15, 0.08, 0.07), normal, m["parpado"], -18 * lado
+        )
+        triste.append(parpado)
+    punto, normal = ojos[1]
+    triste.append(elipsoide("triste_lagrima", punto + normal * 0.05 + Vector((0.06, 0, -0.14)), (0.03, 0.025, 0.045), m["lagrima"]))
     return {"feliz": feliz, "triste": triste}
 
 
-def construir_brazo(m, lado):
-    brazo = elipsoide(f"brazo_{lado}", (0.44 * lado, -0.08, 0.84), (0.11, 0.11, 0.21), m["piel"], (-15, 12 * lado, 0))
-    palma = elipsoide(f"palma_{lado}", (0.49 * lado, -0.15, 0.66), (0.075, 0.07, 0.07), m["palma"])
-    return [brazo, palma]
-
-
-def construir_pierna(m, lado):
-    x = 0.2 * lado
-    muslo = elipsoide(f"pierna_{lado}", (x, 0, 0.24), (0.19, 0.19, 0.22), m["piel"])
-    pie = elipsoide(f"pie_{lado}", (x, -0.06, 0.07), (0.17, 0.24, 0.08), m["piel"])
-    garras = [
-        cono(f"garra_{lado}_{dedo}", (x + 0.08 * dedo, -0.26, 0.05), (x + 0.09 * dedo, -0.34, 0.03), 0.035, m["garra"])
-        for dedo in (-1, 0, 1)
-    ]
-    return [muslo, pie, *garras]
-
-
-def construir_cola(m):
-    cola = elipsoide("cola", (0, 0.45, 0.36), (0.12, 0.28, 0.12), m["piel"], (35, 0, 0))
-    puas = [
-        cono(f"pua_{indice}", (0, 0.36 + 0.13 * indice, 0.5 - 0.1 * indice), (0, 0.42 + 0.13 * indice, 0.62 - 0.1 * indice), 0.05, m["piel"])
-        for indice in range(3)
-    ]
-    return [cola, *puas]
-
-
 def construir_gorra(m):
-    copa = elipsoide("gorra_copa", (0, 0.05, 1.7), (0.5, 0.48, 0.32), m["gorra"], (-22, 0, 0))
-    visera = elipsoide("gorra_visera", (0, -0.43, 1.8), (0.32, 0.22, 0.035), m["visera"], (-10, 0, 0))
+    copa = elipsoide("gorra_copa", (0, -0.1, 1.82), (0.53, 0.62, 0.3), m["gorra"], (-12, 0, 0))
+    visera = elipsoide("gorra_visera", (0, -0.7, 1.88), (0.34, 0.24, 0.035), m["visera"], (-8, 0, 0))
     return [copa, visera]
 
 
@@ -218,23 +303,21 @@ def construir() -> Modelo:
     """Arma la escena completa y devuelve el esqueleto con sus ranuras."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     materiales = crear_materiales()
+    cuerpo = construir_cuerpo(materiales)
+    pies, manos = construir_garras(cuerpo, materiales)
+    caras = construir_caras(cuerpo, materiales)
+    gorra = construir_gorra(materiales)
+
     esqueleto = crear_esqueleto()
-    modelo = Modelo(esqueleto)
-
-    pegar(construir_cuerpo(materiales), esqueleto, "cuerpo")
-    pegar(construir_cabeza(materiales), esqueleto, "cabeza")
-    for lado, sufijo in ((-1, "R"), (1, "L")):
-        pegar(construir_brazo(materiales, lado), esqueleto, f"brazo.{sufijo}")
-        pegar(construir_pierna(materiales, lado), esqueleto, f"pierna.{sufijo}")
-    pegar(construir_cola(materiales), esqueleto, "cola")
-
-    modelo.caras = construir_caras(materiales)
-    for piezas in modelo.caras.values():
+    deformar(cuerpo, esqueleto)
+    pegar(pies[:3], esqueleto, "pierna.R")
+    pegar(pies[3:], esqueleto, "pierna.L")
+    pegar(manos[-1], esqueleto, "brazo.R")
+    pegar(manos[1], esqueleto, "brazo.L")
+    for piezas in caras.values():
         pegar(piezas, esqueleto, "cabeza")
-
-    modelo.prendas = {"gorra": construir_gorra(materiales)}
-    pegar(modelo.prendas["gorra"], esqueleto, "cabeza")
-    return modelo
+    pegar(gorra, esqueleto, "cabeza")
+    return Modelo(esqueleto, caras, {"gorra": gorra})
 
 
 def vestir(modelo: Modelo, cara: str, prendas: list[str]):
