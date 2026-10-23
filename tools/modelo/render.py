@@ -25,7 +25,7 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent))
 
 from nailong import MATERIALES, Modelo, color_identificador, construir, vestir  # noqa: E402
-from paleta import DETALLES, RAMPAS, UMBRALES_LUZ, a_rgb  # noqa: E402
+from paleta import DETALLES, OJO, RAMPAS, UMBRALES_LUZ, a_rgb  # noqa: E402
 from poses import ANIMACIONES  # noqa: E402
 
 LADO_CUADRO = 64
@@ -151,10 +151,9 @@ def reducir(indices: np.ndarray, luz: np.ndarray, profundidad: np.ndarray):
     conteos = np.stack([(bloques == indice).sum(-1) for indice in range(len(MATERIALES) + 1)], -1)
 
     elegido = conteos.argmax(-1)
-    detalles = [MATERIALES.index(nombre) + 1 for nombre in DETALLES]
-    conteo_detalle = conteos[..., detalles]
-    mejor_detalle = np.array(detalles)[conteo_detalle.argmax(-1)]
-    elegido = np.where(conteo_detalle.max(-1) >= COBERTURA_DETALLE, mejor_detalle, elegido)
+    for nombre in reversed(DETALLES):
+        indice = MATERIALES.index(nombre) + 1
+        elegido = np.where(conteos[..., indice] >= COBERTURA_DETALLE, indice, elegido)
 
     mascara = bloques == elegido[..., None]
     cantidad = np.maximum(mascara.sum(-1), 1)
@@ -185,7 +184,56 @@ def pintar(elegido: np.ndarray, luz: np.ndarray, profundidad: np.ndarray) -> Ima
         mascara = elegido == indice
         salida[mascara, :3] = rampa[tono[mascara]]
         salida[mascara, 3] = 255
+    for ojo in regiones(elegido == MATERIALES.index("ojo") + 1):
+        dibujar_ojo(salida, ojo)
     return Image.fromarray(salida)
+
+
+def regiones(mascara: np.ndarray) -> list[set[tuple[int, int]]]:
+    """Separa la máscara en grupos de píxeles conectados (uno por ojo)."""
+    pendientes = set(zip(*np.nonzero(mascara)))
+    grupos = []
+    while pendientes:
+        frontera = [pendientes.pop()]
+        grupo = set(frontera)
+        while frontera:
+            y, x = frontera.pop()
+            for vecino in ((y - 1, x), (y + 1, x), (y, x - 1), (y, x + 1)):
+                if vecino in pendientes:
+                    pendientes.remove(vecino)
+                    grupo.add(vecino)
+                    frontera.append(vecino)
+        grupos.append(grupo)
+    return grupos
+
+
+def dibujar_ojo(salida: np.ndarray, pixeles: set[tuple[int, int]]):
+    """Pinta un ojo al estilo de los sprites hechos a mano, sea cual sea su tamaño."""
+    filas = [y for y, _ in pixeles]
+    columnas = [x for _, x in pixeles]
+    arriba, abajo = min(filas), max(filas)
+    izquierda, derecha = min(columnas), max(columnas)
+    centro = (izquierda + derecha) / 2
+    pupila = {int(np.floor(centro - 0.5)), int(np.floor(centro + 0.5))} if derecha - izquierda >= 3 else {round(centro)}
+    columna_brillo = max(pupila) + 1
+    alto = abajo - arriba + 1
+
+    for y, x in pixeles:
+        if y == arriba:
+            color = OJO["borde"]
+        elif y == abajo and alto >= 4:
+            color = OJO["iris_oscuro"]
+        elif x == columna_brillo and y in (arriba + 1, arriba + 2) and alto >= 4:
+            color = OJO["brillo"]
+        elif x in pupila and y <= abajo - 2:
+            color = OJO["pupila"]
+        elif y == abajo - 1 and alto >= 4:
+            color = OJO["iris_claro"]
+        elif x in (izquierda, derecha):
+            color = OJO["iris_oscuro"]
+        else:
+            color = OJO["iris"]
+        salida[y, x, :3] = a_rgb(color)
 
 
 def renderizar_cuadro(carpeta: Path, material_profundidad) -> Image.Image:

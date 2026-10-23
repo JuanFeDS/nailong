@@ -35,10 +35,7 @@ MATERIALES = [
     "panza",
     "palma",
     "garra",
-    "esclerotica",
-    "iris",
-    "pupila",
-    "brillo",
+    "ojo",
     "boca",
     "parpado",
     "lagrima",
@@ -356,17 +353,11 @@ def construir_extremidades(m) -> dict[str, list[bpy.types.Object]]:
 
 
 def construir_ojos(cuerpo, m, prefijo):
-    """Ojos grandes: blanco, aro verde, pupila negra y un brillo."""
+    """Marca dónde va cada ojo; el render dibuja sus píxeles con una regla fija."""
     piezas, posiciones = [], []
     for lado in (-1, 1):
         punto, normal = superficie(cuerpo, (0.24 * lado, -2, 1.52), (0, 1, 0))
-        frente = lambda distancia: punto + normal * distancia  # noqa: E731
-        piezas += [
-            orientado(f"{prefijo}_esclerotica_{lado}", frente(-0.02), (0.13, 0.14, 0.05), normal, m["esclerotica"]),
-            orientado(f"{prefijo}_iris_{lado}", frente(0.008), (0.1, 0.11, 0.025), normal, m["iris"]),
-            orientado(f"{prefijo}_pupila_{lado}", frente(0.018), (0.075, 0.085, 0.02), normal, m["pupila"]),
-            orientado(f"{prefijo}_brillo_{lado}", frente(0.03) + Vector((0.03, 0, 0.04)), (0.025, 0.025, 0.01), normal, m["brillo"]),
-        ]
+        piezas.append(orientado(f"{prefijo}_ojo_{lado}", punto, (0.11, 0.135, 0.03), normal, m["ojo"]))
         posiciones.append((punto, normal))
     return piezas, posiciones
 
@@ -379,7 +370,7 @@ def construir_caras(cuerpo, m) -> dict[str, list[bpy.types.Object]]:
             z = 1.32 + (curvatura if x == 0 else 0)
             punto, normal = superficie(cuerpo, (x, -2, z), (0, 1, 0))
             puntos.append(punto + normal * 0.01)
-        return trazo(f"{prefijo}_boca", puntos, 0.018, m["boca"])
+        return trazo(f"{prefijo}_boca", puntos, 0.013, m["boca"])
 
     feliz, _ = construir_ojos(cuerpo, m, "feliz")
     feliz.append(boca("feliz", -0.04))
@@ -388,7 +379,7 @@ def construir_caras(cuerpo, m) -> dict[str, list[bpy.types.Object]]:
     triste.append(boca("triste", 0.03))
     for lado, (punto, normal) in zip((-1, 1), ojos):
         parpado = orientado(
-            f"triste_parpado_{lado}", punto + normal * 0.02 + Vector((0, 0, 0.1)), (0.15, 0.08, 0.07), normal, m["parpado"], -18 * lado
+            f"triste_parpado_{lado}", punto + normal * 0.02 + Vector((0, 0, 0.1)), (0.15, 0.08, 0.07), normal, m["parpado"], 18 * lado
         )
         triste.append(parpado)
     punto, normal = ojos[1]

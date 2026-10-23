@@ -10,11 +10,8 @@ RAMPAS = {
     "panza": ["#e26721", "#fcd45d", "#fceab7", "#fceab7", "#fceab7"],
     "palma": ["#c83630", "#f0644d", "#f89f94", "#f89f94", "#f89f94"],
     "garra": ["#672f1b", "#672f1b", "#672f1b", "#6c4e24", "#996b4c"],
-    "esclerotica": ["#a39f91", "#a39f91", "#f5f4eb", "#f5f4eb", "#f5f4eb"],
-    "iris": ["#1b2317", "#315a2c", "#315a2c", "#5f9e54", "#72c85c"],
-    "pupila": ["#1b2317", "#1b2317", "#1b2317", "#1b2317", "#1b2317"],
-    "brillo": ["#f5f4eb", "#f5f4eb", "#f5f4eb", "#f5f4eb", "#f5f4eb"],
-    "boca": ["#672f1b", "#672f1b", "#672f1b", "#672f1b", "#672f1b"],
+    "ojo": ["#5f9e54", "#5f9e54", "#5f9e54", "#5f9e54", "#5f9e54"],
+    "boca": ["#697661", "#697661", "#697661", "#697661", "#697661"],
     "parpado": ["#a05022", "#e26721", "#faa426", "#fdcb32", "#fcd45d"],
     "lagrima": ["#41a6f6", "#73eff7", "#73eff7", "#73eff7", "#73eff7"],
     "gorra": ["#1d2b53", "#29366f", "#3b5dc9", "#41a6f6", "#41a6f6"],
@@ -23,7 +20,21 @@ RAMPAS = {
 
 # Rasgos pequeños de la cara: ganan el píxel aunque cubran solo parte de él,
 # para que ojos y boca no desaparezcan al reducir a la resolución final.
-DETALLES = {"esclerotica", "iris", "pupila", "brillo", "boca", "lagrima"}
+# Van de mayor a menor prioridad: si dos compiten por un píxel, gana el primero.
+DETALLES = ["lagrima", "boca", "ojo"]
+
+# Los ojos miden pocos píxeles, así que no salen del sombreado 3D: se dibujan
+# como en los sprites hechos a mano: borde oscuro arriba, pupila negra en la
+# parte alta con un brillo a su derecha, iris verde a los lados, una franja
+# verde clara abajo y la base verde oscura.
+OJO = {
+    "borde": "#1b2317",
+    "pupila": "#1b2317",
+    "iris": "#5f9e54",
+    "iris_claro": "#72c85c",
+    "iris_oscuro": "#315a2c",
+    "brillo": "#f5f4eb",
+}
 
 # Umbrales de luz que separan los tonos de sombra a luz (sin contar el contorno).
 UMBRALES_LUZ = [0.42, 0.62, 0.86]
