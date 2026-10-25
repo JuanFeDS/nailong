@@ -44,6 +44,10 @@ VISTAS = {
     "espalda": (0, 1, 0),
 }
 
+# Giro extra de la cabeza en cada vista, en grados: de lado Nailong voltea la
+# cara hacia el jugador y mira un poco hacia arriba, como en los sprites 2D.
+GIRO_CABEZA = {"lado": (-8, -28, 0)}
+
 
 def preparar_escena():
     escena = bpy.context.scene
@@ -248,7 +252,11 @@ def renderizar_hoja(modelo, camara, material_profundidad, animacion, vista, anim
     apuntar(camara, vista)
     hoja = Image.new("RGBA", (LADO_CUADRO * cuadros, LADO_CUADRO))
     for cuadro in range(cuadros):
-        posar(modelo, ANIMACIONES[animacion](cuadro / cuadros, animo))
+        pose = ANIMACIONES[animacion](cuadro / cuadros, animo)
+        if vista in GIRO_CABEZA:
+            cabeza = pose.setdefault("cabeza", {})
+            cabeza["rot"] = tuple(a + b for a, b in zip(cabeza.get("rot", (0, 0, 0)), GIRO_CABEZA[vista]))
+        posar(modelo, pose)
         hoja.paste(renderizar_cuadro(carpeta, material_profundidad), (cuadro * LADO_CUADRO, 0))
     return hoja
 
