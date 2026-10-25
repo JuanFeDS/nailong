@@ -12,6 +12,14 @@ const sleeping = params.get('sleep') === '1'
 const editing = params.get('edit') === '1'
 const wall = (WALLS.find((option) => option.id === params.get('wall'))?.id ?? 'blue') as WallId
 const floor = (FLOORS.find((option) => option.id === params.get('floor'))?.id ?? 'wood') as FloorId
+// ?mood=sad|hungry|sleepy|weak baja la estadística que provoca ese ánimo.
+const MOOD_STATS: Record<string, { satiety: number; happiness: number; energy: number }> = {
+  sad: { satiety: 80, happiness: 20, energy: 80 },
+  hungry: { satiety: 20, happiness: 80, energy: 80 },
+  sleepy: { satiety: 80, happiness: 80, energy: 20 },
+  weak: { satiety: 5, happiness: 5, energy: 5 },
+}
+const stats = MOOD_STATS[params.get('mood') ?? ''] ?? { satiety: 80, happiness: 80, energy: 80 }
 
 const DEFAULT_LAYOUT: [ItemKind, number, number][] = [
   ['rug', 360, 300], ['clock', 170, 86], ['wallshelf', 385, 100], ['bookshelf', 480, 168],
@@ -28,6 +36,12 @@ function Preview() {
   useEffect(() => {
     if (!params.get('water')) return
     const timer = window.setTimeout(() => setWaterTrigger({ id: 1, slot: 0 }), 1500)
+    return () => window.clearTimeout(timer)
+  }, [])
+  const [feedTrigger, setFeedTrigger] = useState(0)
+  useEffect(() => {
+    if (!params.get('feed')) return
+    const timer = window.setTimeout(() => setFeedTrigger(1), 1500)
     return () => window.clearTimeout(timer)
   }, [])
   useEffect(() => {
@@ -66,7 +80,7 @@ function Preview() {
         ]}
         onPlotTap={(slot) => console.log('bancal', slot)}
         onFeedRequest={() => console.log('comer')}
-        feedTrigger={0}
+        feedTrigger={feedTrigger}
         place={place}
         onTravel={setPlace}
         style={{ wall, floor }}
@@ -74,7 +88,7 @@ function Preview() {
         onMoveItem={(itemId, x, y) =>
           setItems((current) => current.map((item) => (item.id === itemId ? { ...item, x, y } : item)))
         }
-        stats={{ satiety: 80, happiness: 80, energy: 80 }}
+        stats={stats}
         canSend
         windowName={windowName}
         sleeping={sleeping}
