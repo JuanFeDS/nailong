@@ -25,13 +25,14 @@ from PIL import Image
 sys.path.insert(0, str(Path(__file__).parent))
 
 from nailong import MATERIALES, Modelo, color_identificador, construir, vestir  # noqa: E402
-from paleta import DETALLES, OJO, RAMPAS, UMBRALES_LUZ, a_rgb  # noqa: E402
+from gestos import dibujar_boca, dibujar_ojos, resolver  # noqa: E402
+from paleta import DETALLES, RAMPAS, UMBRALES_LUZ, a_rgb  # noqa: E402
 from poses import ANIMACIONES  # noqa: E402
 
 LADO_CUADRO = 64
 SUBMUESTREO = 4
-ESCALA_ORTOGRAFICA = 2.2
-CENTRO_CAMARA = 1.02
+ESCALA_ORTOGRAFICA = 2.1
+CENTRO_CAMARA = 0.97
 COBERTURA_DETALLE = 4
 DISTANCIA_CAMARA = 10
 # Diferencia de profundidad (en unidades) a partir de la cual una parte tapa a otra.
@@ -44,9 +45,13 @@ VISTAS = {
     "espalda": (0, 1, 0),
 }
 
-# Giro extra de la cabeza en cada vista, en grados: de lado Nailong voltea la
-# cara hacia el jugador y mira un poco hacia arriba, como en los sprites 2D.
-GIRO_CABEZA = {"lado": (-8, -28, 0)}
+# Giros extra por vista, en grados. De lado Nailong voltea la cara hacia el
+# jugador y mira un poco hacia arriba, y de espaldas la cola se ve hacia un
+# costado, como en los sprites 2D; de punta hacia la cámara no se entendería.
+GIROS_POR_VISTA = {
+    "lado": {"cabeza": (-8, -28, 0)},
+    "espalda": {"cola": (0, 0, -55)},
+}
 
 
 def preparar_escena():
@@ -100,6 +105,7 @@ def posar(modelo: Modelo, pose: dict):
         valores = pose.get(hueso.name, {})
         hueso.rotation_euler = [radians(angulo) for angulo in valores.get("rot", (0, 0, 0))]
         hueso.location = (0, valores.get("lift", 0), 0)
+        hueso.scale = valores.get("escala", (1, 1, 1))
     bpy.context.view_layer.update()
 
 
@@ -138,8 +144,9 @@ def a_lineal(srgb: float) -> float:
 
 def identificar(pasada: np.ndarray) -> np.ndarray:
     """Convierte la pasada de colores planos en el índice de material (0 = vacío)."""
-    esperados = np.array([a_srgb(color_identificador(indice)[0]) for indice in range(len(MATERIALES))])
-    cercano = np.abs(pasada[..., 0, None] - esperados).argmin(axis=-1) + 1
+    esperados = np.array([[a_srgb(canal) for canal in color_identificador(indice)[:2]] for indice in range(len(MATERIALES))])
+    distancia = np.linalg.norm(pasada[..., None, :2] - esperados, axis=-1)
+    cercano = distancia.argmin(axis=-1) + 1
     return np.where(pasada[..., 3] > 0.5, cercano, 0)
 
 
@@ -178,8 +185,8 @@ def contorno(profundidad: np.ndarray) -> np.ndarray:
     return lleno & borde
 
 
-def pintar(elegido: np.ndarray, luz: np.ndarray, profundidad: np.ndarray) -> Image.Image:
-    """Pinta cada píxel con el tono de su rampa y traza los contornos."""
+def pintar(elegido: np.ndarray, luz: np.ndarray, profundidad: np.ndarray, cara: dict) -> Image.Image:
+    """Pinta cada píxel con el tono de su rampa, traza los contornos y dibuja el gesto."""
     salida = np.zeros((*elegido.shape, 4), dtype=np.uint8)
     tono = np.where(contorno(profundidad), 0, 1 + np.searchsorted(UMBRALES_LUZ, luz))
 
@@ -188,8 +195,8 @@ def pintar(elegido: np.ndarray, luz: np.ndarray, profundidad: np.ndarray) -> Ima
         mascara = elegido == indice
         salida[mascara, :3] = rampa[tono[mascara]]
         salida[mascara, 3] = 255
-    for ojo in regiones(elegido == MATERIALES.index("ojo") + 1):
-        dibujar_ojo(salida, ojo)
+    dibujar_ojos(salida, regiones(elegido == MATERIALES.index("ojo") + 1), cara["ojos"], cara["mirada"])
+    dibujar_boca(salida, regiones(elegido == MATERIALES.index("boca") + 1), cara["boca"])
     return Image.fromarray(salida)
 
 
@@ -211,53 +218,28 @@ def regiones(mascara: np.ndarray) -> list[set[tuple[int, int]]]:
     return grupos
 
 
-def dibujar_ojo(salida: np.ndarray, pixeles: set[tuple[int, int]]):
-    """Pinta un ojo al estilo de los sprites hechos a mano, sea cual sea su tamaño."""
-    filas = [y for y, _ in pixeles]
-    columnas = [x for _, x in pixeles]
-    arriba, abajo = min(filas), max(filas)
-    izquierda, derecha = min(columnas), max(columnas)
-    centro = (izquierda + derecha) / 2
-    pupila = {int(np.floor(centro - 0.5)), int(np.floor(centro + 0.5))} if derecha - izquierda >= 3 else {round(centro)}
-    columna_brillo = max(pupila) + 1
-    alto = abajo - arriba + 1
-
-    for y, x in pixeles:
-        if y == arriba:
-            color = OJO["borde"]
-        elif y == abajo and alto >= 4:
-            color = OJO["iris_oscuro"]
-        elif x == columna_brillo and y in (arriba + 1, arriba + 2) and alto >= 4:
-            color = OJO["brillo"]
-        elif x in pupila and y <= abajo - 2:
-            color = OJO["pupila"]
-        elif y == abajo - 1 and alto >= 4:
-            color = OJO["iris_claro"]
-        elif x in (izquierda, derecha):
-            color = OJO["iris_oscuro"]
-        else:
-            color = OJO["iris"]
-        salida[y, x, :3] = a_rgb(color)
-
-
-def renderizar_cuadro(carpeta: Path, material_profundidad) -> Image.Image:
+def renderizar_cuadro(carpeta: Path, material_profundidad, cara: dict) -> Image.Image:
     indices = identificar(renderizar_pasada(carpeta / "id.png", "FLAT", "MATERIAL"))
     luz = renderizar_pasada(carpeta / "luz.png", "STUDIO", "SINGLE")[..., 0]
     profundidad = renderizar_profundidad(carpeta / "profundidad.png", material_profundidad)
-    return pintar(*reducir(indices, luz, profundidad))
+    return pintar(*reducir(indices, luz, profundidad), cara)
 
 
 def renderizar_hoja(modelo, camara, material_profundidad, animacion, vista, animo, prendas, cuadros, carpeta) -> Image.Image:
-    vestir(modelo, animo, prendas)
     apuntar(camara, vista)
     hoja = Image.new("RGBA", (LADO_CUADRO * cuadros, LADO_CUADRO))
     for cuadro in range(cuadros):
         pose = ANIMACIONES[animacion](cuadro / cuadros, animo)
-        if vista in GIRO_CABEZA:
-            cabeza = pose.setdefault("cabeza", {})
-            cabeza["rot"] = tuple(a + b for a, b in zip(cabeza.get("rot", (0, 0, 0)), GIRO_CABEZA[vista]))
+        # Una pose puede cambiar el ánimo, los ojos, la boca o la mirada en un cuadro.
+        cara = resolver(pose.pop("cara", animo), pose.pop("ojos", None), pose.pop("boca", None), pose.pop("mirada", None))
+        # También puede sumar extras de la cara (sudor, sonrojo) y sacar objetos.
+        extras = cara["extras"] + [extra for extra in pose.pop("extras", []) if extra not in cara["extras"]]
+        vestir(modelo, extras, prendas, pose.pop("objetos", []))
+        for hueso, giro in GIROS_POR_VISTA.get(vista, {}).items():
+            valores = pose.setdefault(hueso, {})
+            valores["rot"] = tuple(a + b for a, b in zip(valores.get("rot", (0, 0, 0)), giro))
         posar(modelo, pose)
-        hoja.paste(renderizar_cuadro(carpeta, material_profundidad), (cuadro * LADO_CUADRO, 0))
+        hoja.paste(renderizar_cuadro(carpeta, material_profundidad, cara), (cuadro * LADO_CUADRO, 0))
     return hoja
 
 
