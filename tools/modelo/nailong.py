@@ -46,10 +46,10 @@ MATERIALES = [
 HUESOS = {
     # nombre: (cabeza, cola, padre)
     "raiz": ((0, 0, 0), (0, 0, 0.3), None),
-    "cuerpo": ((0, 0, 0.35), (0, 0, 1.15), "raiz"),
-    "cabeza": ((0, -0.08, 1.13), (0, -0.08, 1.96), "cuerpo"),
-    "brazo.R": ((-0.42, -0.06, 0.95), (-0.61, -0.28, 0.69), "cuerpo"),
-    "brazo.L": ((0.42, -0.06, 0.95), (0.61, -0.28, 0.69), "cuerpo"),
+    "cuerpo": ((0, 0, 0.3), (0, 0, 0.99), "raiz"),
+    "cabeza": ((0, -0.08, 0.99), (0, -0.08, 1.76), "cuerpo"),
+    "brazo.R": ((-0.46, -0.06, 0.82), (-0.65, -0.28, 0.56), "cuerpo"),
+    "brazo.L": ((0.46, -0.06, 0.82), (0.65, -0.28, 0.56), "cuerpo"),
     "pierna.R": ((-0.25, 0, 0.36), (-0.25, -0.02, 0.04), "raiz"),
     "pierna.L": ((0.25, 0, 0.36), (0.25, -0.02, 0.04), "raiz"),
     "cola": ((0, 0.3, 0.38), (0, 0.78, 0.1), "cuerpo"),
@@ -58,31 +58,31 @@ HUESOS = {
 # Siluetas del tronco: (altura, medio ancho de frente, hacia adelante, hacia atrás).
 # Por encima de la última fila la cabeza se cierra en una cúpula.
 PERFIL = [
-    (0.1, 0.34, 0.26, 0.26),
-    (0.22, 0.45, 0.37, 0.35),
-    (0.4, 0.49, 0.43, 0.38),
-    (0.62, 0.47, 0.42, 0.36),
-    (0.84, 0.42, 0.37, 0.32),
-    (1.03, 0.41, 0.35, 0.3),
+    (0.1, 0.38, 0.29, 0.29),
+    (0.21, 0.5, 0.41, 0.39),
+    (0.36, 0.55, 0.48, 0.42),
+    (0.55, 0.53, 0.47, 0.4),
+    (0.74, 0.47, 0.41, 0.36),
+    (0.9, 0.44, 0.38, 0.33),
     # Cuello: el quiebre bajo la barbilla que separa la cabeza del cuerpo.
-    (1.13, 0.43, 0.39, 0.31),
-    (1.22, 0.47, 0.5, 0.34),
-    (1.34, 0.56, 0.64, 0.43),
-    (1.44, 0.57, 0.66, 0.46),
-    (1.5, 0.565, 0.65, 0.47),
+    (0.99, 0.46, 0.41, 0.34),
+    # Cachetes: la cabeza es más ancha abajo y se cierra en una cúpula alta, como una campana.
+    (1.07, 0.52, 0.53, 0.37),
+    (1.16, 0.555, 0.64, 0.44),
+    (1.22, 0.555, 0.65, 0.46),
 ]
-ALTO_CUPULA = 0.46
+ALTO_CUPULA = 0.52
 # Exponente de la sección: 2 es una elipse; más alto la hace más cuadrada.
 REDONDEZ = 2.15
 FILAS, COLUMNAS = 90, 64
 
 # Extremidades como volúmenes que se funden: (centro, radios, rotación en grados).
 BRAZO = [
-    ((0.42, -0.06, 0.95), (0.13, 0.13, 0.14), (0, 0, 0)),
-    ((0.51, -0.15, 0.83), (0.1, 0.1, 0.16), (-35, 30, 0)),
-    ((0.59, -0.23, 0.72), (0.1, 0.095, 0.1), (0, 0, 0)),
+    ((0.46, -0.06, 0.82), (0.13, 0.13, 0.14), (0, 0, 0)),
+    ((0.55, -0.15, 0.7), (0.1, 0.1, 0.16), (-35, 30, 0)),
+    ((0.63, -0.23, 0.59), (0.1, 0.095, 0.1), (0, 0, 0)),
 ]
-MANO = Vector((0.61, -0.28, 0.69))
+MANO = Vector((0.65, -0.28, 0.56))
 PIERNA = [
     ((0.25, -0.02, 0.2), (0.2, 0.22, 0.19), (0, 0, 0)),
     ((0.25, -0.08, 0.07), (0.19, 0.23, 0.075), (0, 0, 0)),
@@ -263,7 +263,7 @@ def construir_tronco(materiales) -> bpy.types.Object:
         malla.materials.append(materiales[nombre])
     for cara in malla.polygons:
         centro, normal = cara.center, cara.normal
-        panza = (centro.x / 0.31) ** 2 + ((centro.z - 0.6) / 0.4) ** 2 < 1 and normal.y < -0.3
+        panza = (centro.x / 0.33) ** 2 + ((centro.z - 0.5) / 0.34) ** 2 < 1 and normal.y < -0.3
         cara.material_index = 1 if panza else 0
     return tronco
 
@@ -307,7 +307,7 @@ def deformar(tronco, esqueleto):
     cuerpo = tronco.vertex_groups.new(name="cuerpo")
     cabeza = tronco.vertex_groups.new(name="cabeza")
     for vertice in tronco.data.vertices:
-        mezcla = min(max((vertice.co.z - 1.05) / 0.17, 0), 1)
+        mezcla = min(max((vertice.co.z - 0.92) / 0.15, 0), 1)
         mezcla = mezcla * mezcla * (3 - 2 * mezcla)
         cuerpo.add([vertice.index], 1 - mezcla, "REPLACE")
         cabeza.add([vertice.index], mezcla, "REPLACE")
@@ -357,7 +357,7 @@ def construir_ojos(cuerpo, m, prefijo):
     """Marca dónde va cada ojo; el render dibuja sus píxeles con una regla fija."""
     piezas, posiciones = [], []
     for lado in (-1, 1):
-        punto, normal = superficie(cuerpo, (0.26 * lado, -2, 1.53), (0, 1, 0))
+        punto, normal = superficie(cuerpo, (0.27 * lado, -2, 1.35), (0, 1, 0))
         piezas.append(orientado(f"{prefijo}_ojo_{lado}", punto, (0.11, 0.135, 0.03), normal, m["ojo"]))
         posiciones.append((punto, normal))
     return piezas, posiciones
@@ -368,7 +368,7 @@ def construir_caras(cuerpo, m) -> dict[str, list[bpy.types.Object]]:
     def boca(prefijo, curvatura):
         puntos = []
         for x in (-0.11, 0, 0.11):
-            z = 1.36 + (curvatura if x == 0 else 0)
+            z = 1.18 + (curvatura if x == 0 else 0)
             punto, normal = superficie(cuerpo, (x, -2, z), (0, 1, 0))
             puntos.append(punto + normal * 0.01)
         return trazo(f"{prefijo}_boca", puntos, 0.013, m["boca"])
@@ -389,8 +389,8 @@ def construir_caras(cuerpo, m) -> dict[str, list[bpy.types.Object]]:
 
 
 def construir_gorra(m):
-    copa = elipsoide("gorra_copa", (0, -0.08, 1.78), (0.6, 0.7, 0.3), m["gorra"], (-12, 0, 0))
-    visera = elipsoide("gorra_visera", (0, -0.74, 1.82), (0.36, 0.25, 0.035), m["visera"], (-8, 0, 0))
+    copa = elipsoide("gorra_copa", (0, -0.08, 1.56), (0.6, 0.7, 0.32), m["gorra"], (-12, 0, 0))
+    visera = elipsoide("gorra_visera", (0, -0.76, 1.62), (0.36, 0.25, 0.035), m["visera"], (-8, 0, 0))
     return [copa, visera]
 
 

@@ -30,8 +30,8 @@ from poses import ANIMACIONES  # noqa: E402
 
 LADO_CUADRO = 64
 SUBMUESTREO = 4
-ESCALA_ORTOGRAFICA = 2.45
-CENTRO_CAMARA = 1.14
+ESCALA_ORTOGRAFICA = 2.2
+CENTRO_CAMARA = 1.02
 COBERTURA_DETALLE = 4
 DISTANCIA_CAMARA = 10
 # Diferencia de profundidad (en unidades) a partir de la cual una parte tapa a otra.
