@@ -58,7 +58,7 @@ body {
   --frame: 0;
   width: calc(64px * var(--s));
   height: calc(64px * var(--s));
-  background: url('/sprites/processed/idle.png') calc(-64px * var(--s) * var(--frame)) 0 /
+  background: url('/sprites/nailong/idle_happy.png') calc(-64px * var(--s) * var(--frame)) 0 /
     calc(256px * var(--s)) calc(64px * var(--s)) no-repeat;
   image-rendering: pixelated;
   flex: none;
@@ -616,12 +616,13 @@ button {
 /* ---------- Viaje de Nailong ---------- */
 
 .sprite--walk {
-  background-image: url('/sprites/processed/walk_side_v2.png');
+  background-image: url('/sprites/nailong/walk_side.png');
+  background-size: calc(512px * var(--s)) calc(64px * var(--s));
 }
 
 @keyframes step {
   to {
-    background-position-x: calc(-256px * var(--s));
+    background-position-x: calc(-512px * var(--s));
   }
 }
 
@@ -714,7 +715,7 @@ button {
 
 @media (prefers-reduced-motion: no-preference) {
   .sprite--walking {
-    animation: step 0.5s steps(4) infinite;
+    animation: step 0.56s steps(8) infinite;
   }
 
   .road__walker {

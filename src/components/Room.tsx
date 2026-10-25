@@ -19,6 +19,7 @@ import {
   WALLS,
 } from '../lib/house'
 import { WINDOW_NAMES, type WindowName } from '../lib/weather'
+import nailongSprites from '../lib/nailongSprites.json'
 const MOBILE_VIEW_WIDTH = 360
 const MOBILE_QUERY = '(max-width: 767px)'
 const CAMERA_FOLLOW_SPEED = 4
@@ -30,24 +31,16 @@ const ARROW_TOP = 170
 const ARROW_HEIGHT = 90
 const WINDOW_POSITION = { x: 32, y: 22 }
 const SPEED = 80
-const EAT_URL = asset('sprites/processed/eat.png')
-const PLAY_URL = asset('sprites/processed/play.png')
-const ACTION_FRAMES = 8
-const SLEEP_URL = asset('sprites/processed/sleep.png')
-const SLEEP_FRAMES = 8
+// Hojas generadas desde el modelo 3D (tools/modelo/exportar.py). El índice dice
+// cuántos cuadros trae cada una y cuánto dura cada cuadro.
+type SheetName = keyof typeof nailongSprites
+const SOCCER_FRAMES = 8
 const SLEEP_INSET = 16
 const NIGHT_LOOP_MS = 6000
 const NIGHT_TINT = 'rgba(10, 8, 40, 0.38)'
 const SPRITE_SCALE = 2
-const IDLE_URL = asset('sprites/processed/idle.png')
 const IDLE_SEQUENCE = [0, 1, 0, 1, 0, 2, 0, 1, 0, 3]
-const IDLE_FRAME_MS = 600
 const WAVE_FRAME = 3
-const WALK_URL = asset('sprites/processed/walk_side_v2.png')
-const WALK_FRONT_URL = asset('sprites/processed/walk_front.png')
-const WALK_BACK_URL = asset('sprites/processed/walk_back.png')
-const WALK_FRAMES = 4
-const WALK_FRAME_MS = 140
 const SOURCE_CELL = 64
 const SPRITE_SIZE = 128
 
@@ -61,8 +54,7 @@ const FLIGHT_ARC = 70
 const SWING_URL = asset('sprites/processed/swing_anim.png')
 const SWING_FRAMES = 7
 const SWING_CYCLES = 2
-const WATER_URL = asset('sprites/processed/water.png')
-const WATER_SIDE_OFFSET = 78
+const WATER_SIDE_OFFSET = 92
 const PATIO_URL = asset('rooms/patio.png')
 const PLOT_SPOTS = [
   { slot: 0, x: 400, y: 338 },
@@ -121,6 +113,10 @@ interface Walker {
   plotSlot: number
 }
 
+const IDLE_BY_MOOD: Record<ReturnType<typeof moodOf>, SheetName> = {
+  happy: 'idle_happy', idle: 'idle_happy', hungry: 'idle_hungry', sleepy: 'idle_sleepy', sad: 'idle_sad', weak: 'idle_sad',
+}
+
 function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 'idle' {
   const lowest = Math.min(stats.satiety, stats.happiness, stats.energy)
   if (lowest < 10) return 'weak'
@@ -143,12 +139,14 @@ export function Room({
     const context = canvas?.getContext('2d')
     if (!canvas || !context) return
 
-    const sprite = new Image()
-    sprite.src = IDLE_URL
-    const walkSprite = new Image()
-    walkSprite.src = WALK_URL
-    const walkFrontSprite = new Image()
-    walkFrontSprite.src = WALK_FRONT_URL
+    const sheets = Object.fromEntries(
+      (Object.keys(nailongSprites) as SheetName[]).map((name) => {
+        const image = new Image()
+        image.src = asset(nailongSprites[name].file)
+        return [name, image]
+      }),
+    ) as Record<SheetName, HTMLImageElement>
+    const ready = (image: HTMLImageElement) => image.complete && image.naturalWidth > 0
     const loadImages = <Id extends string>(ids: readonly { id: Id }[], folder: string) =>
       Object.fromEntries(
         ids.map(({ id }) => {
@@ -170,20 +168,11 @@ export function Room({
         return [name, image]
       }),
     ) as Record<WindowName, HTMLImageElement>
-    const walkBackSprite = new Image()
-    walkBackSprite.src = WALK_BACK_URL
-    const eatSprite = new Image()
-    eatSprite.src = EAT_URL
-    const playSprite = new Image()
-    playSprite.src = PLAY_URL
     const soccerSprite = new Image()
     soccerSprite.src = SOCCER_URL
     const swingSprite = new Image()
     swingSprite.src = SWING_URL
-    const waterSprite = new Image()
-    waterSprite.src = WATER_URL
-    const sleepSprite = new Image()
-    sleepSprite.src = SLEEP_URL
+    const sleepSprite = sheets.sleep
     const objects = Object.fromEntries(
       ITEM_KINDS.map((name) => {
         const image = new Image()
@@ -441,12 +430,19 @@ export function Room({
       const busy = time < walker.busyUntil ? walker.busyTask : null
       const walking = walker.target !== null
       const mood = moodOf(latest.current.stats)
-      const strip = busy === 'feed' ? eatSprite : busy === 'play' ? playSprite : busy === 'water' ? waterSprite : busy === 'soccer' ? soccerSprite : null
-      const acting = strip !== null && strip.complete && strip.naturalWidth > 0
+      const down = mood === 'sad' || mood === 'weak'
+      const stripName: SheetName | null = busy === 'feed' ? 'eat' : busy === 'play' ? 'play' : busy === 'water' ? 'water' : null
+      const strip = stripName ? sheets[stripName] : busy === 'soccer' ? soccerSprite : null
+      const actionFrames = stripName ? nailongSprites[stripName].frames : SOCCER_FRAMES
+      const acting = strip !== null && ready(strip)
       const hop = busy === 'play' && !acting ? Math.abs(Math.sin(time / 150)) * 12 : 0
-      const directional = walker.heading === 'front' ? walkFrontSprite : walker.heading === 'back' ? walkBackSprite : walkSprite
-      const walkSheet = directional.naturalWidth > 0 ? directional : walkSprite
-      const useWalkFrames = walking && !busy && walkSheet.complete && walkSheet.naturalWidth > 0
+      const walkName: SheetName = walker.heading === 'front' ? 'walk_front' : walker.heading === 'back' ? 'walk_back' : down ? 'walk_side_sad' : 'walk_side'
+      const walkSheet = sheets[walkName]
+      const sideWalk = walker.heading === 'side'
+      const useWalkFrames = walking && !busy && ready(walkSheet)
+      // Al enviar saluda con el cuadro de la mano en alto, que está en el quieto feliz.
+      const idleName = busy === 'send' ? 'idle_happy' : IDLE_BY_MOOD[mood]
+      const sprite = sheets[idleName]
       const bob = walking && !useWalkFrames ? Math.abs(Math.sin(time / 90)) * 6 : Math.sin(time / 400) * 1.5
       const baseX = Math.round(walker.x)
       const baseY = Math.round(walker.y - bob - hop)
@@ -457,26 +453,28 @@ export function Room({
       context.fill()
 
       const actionSheet = strip as HTMLImageElement
-      const actionWidth = acting ? actionSheet.naturalWidth / ACTION_FRAMES : 0
+      const actionWidth = acting ? actionSheet.naturalWidth / actionFrames : 0
       const spriteTop = acting ? actionSheet.naturalHeight * SPRITE_SCALE : SPRITE_SIZE
 
-      if (acting || useWalkFrames || (sprite.complete && sprite.naturalWidth > 0)) {
+      if (acting || useWalkFrames || ready(sprite)) {
         context.save()
         context.translate(baseX, baseY)
-        context.scale(acting || (useWalkFrames && walkSheet !== walkSprite) ? 1 : walker.facing, 1)
+        context.scale(acting || (useWalkFrames && !sideWalk) ? 1 : walker.facing, 1)
         if (busy === 'sleep') context.rotate(-0.15 * walker.facing)
         context.globalAlpha = busy === 'sleep' ? 0.75 : 1
-        context.filter = mood === 'weak' || mood === 'sad' ? 'saturate(0.45)' : 'none'
+        // La tristeza ya se ve en la cara y la postura; solo débil se destiñe.
+        context.filter = mood === 'weak' ? 'saturate(0.45)' : 'none'
         if (acting) {
           const progress = 1 - (walker.busyUntil - time) / ACTION_DURATION[walker.busyTask as Task]
-          const frame = Math.min(ACTION_FRAMES - 1, Math.max(0, Math.floor(progress * ACTION_FRAMES)))
+          const frame = Math.min(actionFrames - 1, Math.max(0, Math.floor(progress * actionFrames)))
           context.drawImage(
             actionSheet,
             frame * actionWidth, 0, actionWidth, actionSheet.naturalHeight,
             -(actionWidth * SPRITE_SCALE) / 2, -spriteTop, actionWidth * SPRITE_SCALE, spriteTop,
           )
         } else if (useWalkFrames) {
-          const frame = Math.floor(time / WALK_FRAME_MS) % WALK_FRAMES
+          const { frames, frameMs } = nailongSprites[walkName]
+          const frame = Math.floor(time / frameMs) % frames
           context.drawImage(
             walkSheet,
             frame * SOURCE_CELL, 0, SOURCE_CELL, SOURCE_CELL,
@@ -486,7 +484,7 @@ export function Room({
           const idleFrame =
             busy === 'send'
               ? WAVE_FRAME
-              : IDLE_SEQUENCE[Math.floor(time / IDLE_FRAME_MS) % IDLE_SEQUENCE.length]
+              : IDLE_SEQUENCE[Math.floor(time / nailongSprites[idleName].frameMs) % IDLE_SEQUENCE.length]
           context.drawImage(
             sprite,
             idleFrame * SOURCE_CELL, 0, SOURCE_CELL, SOURCE_CELL,
@@ -538,11 +536,12 @@ export function Room({
     const drawSleeper = (time: number) => {
       const bed = placements().find((item) => item.name === 'bed')
       if (!bed) return
-      const frameWidth = sleepSprite.naturalWidth / SLEEP_FRAMES
+      const sleepFrames = nailongSprites.sleep.frames
+      const frameWidth = sleepSprite.naturalWidth / sleepFrames
       const progress = latest.current.sleeping
         ? (time % NIGHT_LOOP_MS) / NIGHT_LOOP_MS
         : 1 - (walker.busyUntil - time) / ACTION_DURATION.sleep
-      const frame = Math.min(SLEEP_FRAMES - 1, Math.max(0, Math.floor(progress * SLEEP_FRAMES)))
+      const frame = Math.min(sleepFrames - 1, Math.max(0, Math.floor(progress * sleepFrames)))
       const width = frameWidth * SPRITE_SCALE
       const height = sleepSprite.naturalHeight * SPRITE_SCALE
       const top = bed.baseY - SLEEP_INSET - height
