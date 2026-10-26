@@ -37,6 +37,8 @@ const ACTION_FRAMES = 8
 const SLEEP_URL = asset('sprites/processed/sleep.png')
 const SLEEP_FRAMES = 8
 const SLEEP_INSET = 16
+const SLEEP_INSET_3D = 4
+const SLEEP_SHIFT_3D = -18
 const NIGHT_LOOP_MS = 6000
 const NIGHT_TINT = 'rgba(10, 8, 40, 0.38)'
 const SPRITE_SCALE = 2
@@ -692,19 +694,23 @@ export function Room({
       const frame = Math.min(sleepFrames - 1, Math.max(0, Math.floor(progress * sleepFrames)))
       const width = frameWidth * SPRITE_SCALE
       const height = sleepSheet.naturalHeight * SPRITE_SCALE
-      const top = bed.baseY - SLEEP_INSET - height
+      const top = bed.baseY - (sheets ? SLEEP_INSET_3D : SLEEP_INSET) - height
+      const left = bed.cx - width / 2 + (sheets ? SLEEP_SHIFT_3D : 0)
       context.drawImage(
         sleepSheet,
         frame * frameWidth, 0, frameWidth, sleepSheet.naturalHeight,
-        bed.cx - width / 2, top, width, height,
+        left, top, width, height,
       )
 
+      // En la cama 3D duerme acostado con la cabeza en la almohada, a la izquierda.
+      const zzzX = sheets ? bed.cx - 40 : bed.cx + 26
+      const zzzY = sheets ? top + 16 : top + 24
       context.fillStyle = '#fff'
       for (let letter = 0; letter < 3; letter += 1) {
         const rise = (time / 1400 + letter / 3) % 1
         context.globalAlpha = 1 - rise
         context.font = `${16 + letter * 4}px monospace`
-        context.fillText('z', bed.cx + 26 + letter * 14, top + 24 - rise * 44)
+        context.fillText('z', zzzX + letter * 14, zzzY - rise * 44)
       }
       context.globalAlpha = 1
     }
