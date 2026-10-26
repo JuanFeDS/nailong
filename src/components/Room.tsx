@@ -73,6 +73,12 @@ const PLOT_SPOTS = [
 const OBJECT_SCALE = 2
 const SWING_SCALE = 2.6
 const scaleOf = (name: ItemKind) => (name === 'swing' ? SWING_SCALE : OBJECT_SCALE)
+// Muebles de la sala que tienen versión renderizada desde el modelo 3D (prueba con ?sala3d).
+const OBJECTS_3D = new Set<ItemKind>([
+  'rug', 'clock', 'wallshelf', 'bookshelf', 'sidetable', 'pouf', 'armchair', 'toybox',
+  'frame', 'plant', 'bed', 'bowl', 'ball', 'door', 'backdoor',
+])
+const BACKDROP_3D = asset('rooms/fondo_sala3d.png')
 const EDIT_OUTLINE = 'rgba(255, 216, 77, 0.55)'
 const EDIT_OUTLINE_ACTIVE = '#ffd84d'
 
@@ -87,6 +93,7 @@ interface Placement {
 }
 
 interface Props {
+  sala3d?: boolean
   items: HouseItem[]
   waterTrigger: { id: number; slot: number } | null
   onWaterDone: (slot: number) => void
@@ -132,11 +139,11 @@ function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 
 }
 
 export function Room({
-  items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend,
+  sala3d = false, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latest = useRef({ items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
-  latest.current = { items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
+  const latest = useRef({ sala3d, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
+  latest.current = { sala3d, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -157,6 +164,8 @@ export function Room({
           return [id, image]
         }),
       ) as Record<Id, HTMLImageElement>
+    const backdropImage = new Image()
+    if (latest.current.sala3d) backdropImage.src = BACKDROP_3D
     const patioImage = new Image()
     patioImage.src = PATIO_URL
     const horizon = () => WALL_HEIGHT[latest.current.place]
@@ -187,13 +196,15 @@ export function Room({
     const objects = Object.fromEntries(
       ITEM_KINDS.map((name) => {
         const image = new Image()
-        image.src = asset(`rooms/objects/${name}.png`)
+        image.src = asset(`rooms/${latest.current.sala3d && OBJECTS_3D.has(name) ? 'objects3d' : 'objects'}/${name}.png`)
         return [name, image]
       }),
     ) as Record<ItemKind, HTMLImageElement>
+    // Los muebles 3D ya vienen a la resolución del juego; los 2D se dibujan al doble.
+    const drawScale = (name: ItemKind) => (latest.current.sala3d && OBJECTS_3D.has(name) ? 1 : scaleOf(name))
     const sizeOf = (name: ItemKind) => ({
-      width: objects[name].naturalWidth * scaleOf(name),
-      height: objects[name].naturalHeight * scaleOf(name),
+      width: objects[name].naturalWidth * drawScale(name),
+      height: objects[name].naturalHeight * drawScale(name),
     })
 
     let carried: { id: string; x: number; y: number } | null = null
@@ -570,7 +581,9 @@ export function Room({
       const wallImage = wallImages[latest.current.style.wall]
       const floorImage = floorImages[latest.current.style.floor]
       const inPatio = latest.current.place === 'patio'
-      if (inPatio) {
+      if (latest.current.sala3d && !inPatio) {
+        if (backdropImage.complete && backdropImage.naturalWidth > 0) context.drawImage(backdropImage, 0, 0, WIDTH, HEIGHT)
+      } else if (inPatio) {
         if (patioImage.complete && patioImage.naturalWidth > 0) context.drawImage(patioImage, 0, 0, roomWidth(), HEIGHT)
       } else {
         if (wallImage.complete && wallImage.naturalWidth > 0) {
@@ -581,7 +594,7 @@ export function Room({
         }
       }
       const windowSprite = windows[latest.current.windowName]
-      if (!inPatio && windowSprite.complete && windowSprite.naturalWidth > 0) {
+      if (!inPatio && !latest.current.sala3d && windowSprite.complete && windowSprite.naturalWidth > 0) {
         context.drawImage(
           windowSprite,
           WINDOW_POSITION.x, WINDOW_POSITION.y,

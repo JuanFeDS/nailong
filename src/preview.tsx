@@ -56,6 +56,7 @@ function Preview() {
   return (
     <main>
       <Room
+        sala3d={params.has('proto')}
         items={items.filter((item) => item.place === place)}
         waterTrigger={waterTrigger}
         onWaterDone={(slot) => console.log('regado', slot)}

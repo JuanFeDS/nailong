@@ -23,6 +23,8 @@ import { supabase } from './lib/supabase'
 import { PLACES, pickWindow } from './lib/weather'
 
 const NOTICE_MS = 2500
+// Prueba de la sala renderizada desde el modelo 3D: se activa con ?sala3d en la URL.
+const SALA_3D = new URLSearchParams(location.search).has('sala3d')
 const KNOCK_FIRST_MS = 850
 const KNOCK_CYCLE_MS = 1600
 
@@ -161,6 +163,7 @@ function Home({ userId }: { userId: string }) {
 
       {phase === 'home' && (
         <Room
+          sala3d={SALA_3D}
           items={items.filter((item) => item.place === location)}
           plots={garden.plots}
           waterTrigger={waterTrigger}
