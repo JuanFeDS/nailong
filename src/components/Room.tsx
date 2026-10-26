@@ -18,6 +18,7 @@ import {
   WALL_HEIGHT,
   WALLS,
 } from '../lib/house'
+import nailongSprites from '../lib/nailongSprites.json'
 import { WINDOW_NAMES, type WindowName } from '../lib/weather'
 const MOBILE_VIEW_WIDTH = 360
 const MOBILE_QUERY = '(max-width: 767px)'
@@ -63,6 +64,11 @@ const SWING_FRAMES = 7
 const SWING_CYCLES = 2
 const WATER_URL = asset('sprites/processed/water.png')
 const WATER_SIDE_OFFSET = 78
+// Con ?sala3d Nailong también usa las hojas generadas desde el modelo 3D
+// (tools/modelo/exportar.py); el índice dice cuántos cuadros trae cada una.
+type SheetName = keyof typeof nailongSprites
+const WATER_SIDE_OFFSET_3D = 92
+const SOCCER_FRAMES = 8
 const PATIO_URL = asset('rooms/patio.png')
 const PLOT_SPOTS = [
   { slot: 0, x: 400, y: 338 },
@@ -126,6 +132,10 @@ interface Walker {
   busyTask: Task | null
   nextWanderAt: number
   plotSlot: number
+}
+
+const IDLE_BY_MOOD: Record<ReturnType<typeof moodOf>, SheetName> = {
+  happy: 'idle_happy', idle: 'idle_happy', hungry: 'idle_hungry', sleepy: 'idle_sleepy', sad: 'idle_sad', weak: 'idle_sad',
 }
 
 function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 'idle' {
@@ -541,25 +551,151 @@ export function Room({
       )
     }
 
+    const sheets = latest.current.sala3d
+      ? (Object.fromEntries(
+          (Object.keys(nailongSprites) as SheetName[]).map((name) => {
+            const image = new Image()
+            image.src = asset(nailongSprites[name].file)
+            return [name, image]
+          }),
+        ) as Record<SheetName, HTMLImageElement>)
+      : null
+    const sleepSheet = sheets ? sheets.sleep : sleepSprite
+    const sleepFrames = sheets ? nailongSprites.sleep.frames : SLEEP_FRAMES
+    const ready = (image: HTMLImageElement) => image.complete && image.naturalWidth > 0
+
+    // Los renders del modelo 3D dejan unos píxeles vacíos bajo los pies; se mide cuántos
+    // para apoyar el punto más bajo de cada hoja justo en el suelo.
+    const footPads = new Map<string, number>()
+    const footPadOf = (key: string, image: HTMLImageElement) => {
+      const cached = footPads.get(key)
+      if (cached !== undefined) return cached
+      const probe = document.createElement('canvas')
+      probe.width = image.naturalWidth
+      probe.height = image.naturalHeight
+      const probeContext = probe.getContext('2d', { willReadFrequently: true })
+      if (!probeContext) return 0
+      probeContext.drawImage(image, 0, 0)
+      const { data } = probeContext.getImageData(0, 0, probe.width, probe.height)
+      let lowest = 0
+      for (let row = probe.height - 1; row >= 0 && lowest === 0; row -= 1) {
+        for (let column = 0; column < probe.width; column += 1) {
+          if (data[(row * probe.width + column) * 4 + 3] > 0) {
+            lowest = row + 1
+            break
+          }
+        }
+      }
+      const pad = probe.height - lowest
+      footPads.set(key, pad)
+      return pad
+    }
+
+    const drawSoftShadow = (centerX: number, groundY: number, lift: number) => {
+      const shrink = Math.max(0.55, 1 - lift / 70)
+      context.fillStyle = 'rgba(52, 22, 14, 0.22)'
+      context.beginPath()
+      context.ellipse(centerX, groundY - 1, 34 * shrink, 8 * shrink, 0, 0, Math.PI * 2)
+      context.fill()
+      context.fillStyle = 'rgba(52, 22, 14, 0.28)'
+      context.beginPath()
+      context.ellipse(centerX, groundY - 1, 22 * shrink, 5 * shrink, 0, 0, Math.PI * 2)
+      context.fill()
+    }
+
+    const drawNailong3d = (time: number, all: Record<SheetName, HTMLImageElement>) => {
+      const busy = time < walker.busyUntil ? walker.busyTask : null
+      const walking = walker.target !== null
+      const mood = moodOf(latest.current.stats)
+      const down = mood === 'sad' || mood === 'weak'
+      const stripName: SheetName | null = busy === 'feed' ? 'eat' : busy === 'play' ? 'play' : busy === 'water' ? 'water' : null
+      const strip = stripName ? all[stripName] : busy === 'soccer' ? soccerSprite : null
+      const actionFrames = stripName ? nailongSprites[stripName].frames : SOCCER_FRAMES
+      const acting = strip !== null && ready(strip)
+      const hop = busy === 'play' && !acting ? Math.abs(Math.sin(time / 150)) * 12 : 0
+      const walkName: SheetName = walker.heading === 'front' ? 'walk_front' : walker.heading === 'back' ? 'walk_back' : down ? 'walk_side_sad' : 'walk_side'
+      const walkSheet = all[walkName]
+      const sideWalk = walker.heading === 'side'
+      const useWalkFrames = walking && !busy && ready(walkSheet)
+      // Al enviar saluda con el cuadro de la mano en alto, que está en el quieto feliz.
+      const idleName = busy === 'send' ? 'idle_happy' : IDLE_BY_MOOD[mood]
+      const idleSheet = all[idleName]
+      const bob = walking && !useWalkFrames ? Math.abs(Math.sin(time / 90)) * 6 : Math.sin(time / 400) * 1.5
+      const baseX = Math.round(walker.x)
+      const baseY = Math.round(walker.y - bob - hop)
+
+      drawSoftShadow(baseX, walker.y, bob + hop)
+
+      const actionSheet = strip as HTMLImageElement
+      const actionWidth = acting ? actionSheet.naturalWidth / actionFrames : 0
+      const spriteTop = acting ? actionSheet.naturalHeight * SPRITE_SCALE : SPRITE_SIZE
+      const actionPad = acting && stripName ? footPadOf(stripName, actionSheet) * SPRITE_SCALE : 0
+      const walkPad = useWalkFrames ? footPadOf(walkName, walkSheet) * (SPRITE_SIZE / SOURCE_CELL) : 0
+      const idlePad = ready(idleSheet) ? footPadOf(idleName, idleSheet) * (SPRITE_SIZE / SOURCE_CELL) : 0
+
+      if (acting || useWalkFrames || ready(idleSheet)) {
+        context.save()
+        context.translate(baseX, baseY)
+        context.scale(acting || (useWalkFrames && !sideWalk) ? 1 : walker.facing, 1)
+        if (busy === 'sleep') context.rotate(-0.15 * walker.facing)
+        context.globalAlpha = busy === 'sleep' ? 0.75 : 1
+        // La tristeza ya se ve en la cara y la postura; solo débil se destiñe.
+        context.filter = mood === 'weak' ? 'saturate(0.45)' : 'none'
+        if (acting) {
+          const progress = 1 - (walker.busyUntil - time) / ACTION_DURATION[walker.busyTask as Task]
+          const frame = Math.min(actionFrames - 1, Math.max(0, Math.floor(progress * actionFrames)))
+          context.drawImage(
+            actionSheet,
+            frame * actionWidth, 0, actionWidth, actionSheet.naturalHeight,
+            -(actionWidth * SPRITE_SCALE) / 2, -spriteTop + actionPad, actionWidth * SPRITE_SCALE, spriteTop,
+          )
+        } else if (useWalkFrames) {
+          const { frames, frameMs } = nailongSprites[walkName]
+          const frame = Math.floor(time / frameMs) % frames
+          context.drawImage(
+            walkSheet,
+            frame * SOURCE_CELL, 0, SOURCE_CELL, SOURCE_CELL,
+            -SPRITE_SIZE / 2, -SPRITE_SIZE + walkPad, SPRITE_SIZE, SPRITE_SIZE,
+          )
+        } else {
+          const idleFrame =
+            busy === 'send'
+              ? WAVE_FRAME
+              : IDLE_SEQUENCE[Math.floor(time / nailongSprites[idleName].frameMs) % IDLE_SEQUENCE.length]
+          context.drawImage(
+            idleSheet,
+            idleFrame * SOURCE_CELL, 0, SOURCE_CELL, SOURCE_CELL,
+            -SPRITE_SIZE / 2, -SPRITE_SIZE + idlePad, SPRITE_SIZE, SPRITE_SIZE,
+          )
+        }
+        context.restore()
+      }
+
+      context.fillStyle = '#fff'
+      context.font = '24px monospace'
+      const bubble = busy === 'feed' ? 'ñam' : busy === 'sleep' ? 'zzz' : busy === 'play' ? '♪' : busy === 'send' ? 'adiós' : ''
+      if (bubble) context.fillText(bubble, baseX - 16, baseY - spriteTop - 4)
+    }
+
     const isSleepingOnBed = (time: number) =>
-      sleepSprite.complete &&
-      sleepSprite.naturalWidth > 0 &&
+      sleepSheet.complete &&
+      sleepSheet.naturalWidth > 0 &&
       (latest.current.sleeping || (time < walker.busyUntil && walker.busyTask === 'sleep'))
 
     const drawSleeper = (time: number) => {
       const bed = placements().find((item) => item.name === 'bed')
       if (!bed) return
-      const frameWidth = sleepSprite.naturalWidth / SLEEP_FRAMES
+      const frameWidth = sleepSheet.naturalWidth / sleepFrames
       const progress = latest.current.sleeping
         ? (time % NIGHT_LOOP_MS) / NIGHT_LOOP_MS
         : 1 - (walker.busyUntil - time) / ACTION_DURATION.sleep
-      const frame = Math.min(SLEEP_FRAMES - 1, Math.max(0, Math.floor(progress * SLEEP_FRAMES)))
+      const frame = Math.min(sleepFrames - 1, Math.max(0, Math.floor(progress * sleepFrames)))
       const width = frameWidth * SPRITE_SCALE
-      const height = sleepSprite.naturalHeight * SPRITE_SCALE
+      const height = sleepSheet.naturalHeight * SPRITE_SCALE
       const top = bed.baseY - SLEEP_INSET - height
       context.drawImage(
-        sleepSprite,
-        frame * frameWidth, 0, frameWidth, sleepSprite.naturalHeight,
+        sleepSheet,
+        frame * frameWidth, 0, frameWidth, sleepSheet.naturalHeight,
         bed.cx - width / 2, top, width, height,
       )
 
@@ -648,7 +784,7 @@ export function Room({
           ? { depth: bed.baseY + 1, draw: () => drawSleeper(time) }
           : swingingNow(time)
             ? { depth: -2, draw: () => undefined }
-            : { depth: walker.y, draw: () => drawNailong(time) },
+            : { depth: walker.y, draw: () => (sheets ? drawNailong3d(time, sheets) : drawNailong(time)) },
       ].sort((first, second) => first.depth - second.depth)
       drawables.forEach((drawable) => drawable.draw())
       context.restore()
@@ -703,7 +839,7 @@ export function Room({
         lastWaterId = water.id
         const box = plotBoxes().find((candidate) => candidate.slot === water.slot)
         if (box && time >= walker.busyUntil && !latest.current.sleeping) {
-          walker.target = { x: box.x + WATER_SIDE_OFFSET, y: box.y - 8 }
+          walker.target = { x: box.x + (sheets ? WATER_SIDE_OFFSET_3D : WATER_SIDE_OFFSET), y: box.y - 8 }
           walker.task = 'water'
           walker.plotSlot = water.slot
         } else {

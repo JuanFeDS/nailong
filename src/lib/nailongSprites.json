@@ -1,0 +1,62 @@
+{
+  "idle_happy": {
+    "file": "sprites/nailong/idle_happy.png",
+    "frames": 4,
+    "frameMs": 600
+  },
+  "idle_hungry": {
+    "file": "sprites/nailong/idle_hungry.png",
+    "frames": 4,
+    "frameMs": 600
+  },
+  "idle_sleepy": {
+    "file": "sprites/nailong/idle_sleepy.png",
+    "frames": 4,
+    "frameMs": 600
+  },
+  "idle_sad": {
+    "file": "sprites/nailong/idle_sad.png",
+    "frames": 4,
+    "frameMs": 600
+  },
+  "walk_side": {
+    "file": "sprites/nailong/walk_side.png",
+    "frames": 8,
+    "frameMs": 70
+  },
+  "walk_side_sad": {
+    "file": "sprites/nailong/walk_side_sad.png",
+    "frames": 8,
+    "frameMs": 90
+  },
+  "walk_front": {
+    "file": "sprites/nailong/walk_front.png",
+    "frames": 8,
+    "frameMs": 70
+  },
+  "walk_back": {
+    "file": "sprites/nailong/walk_back.png",
+    "frames": 8,
+    "frameMs": 70
+  },
+  "eat": {
+    "file": "sprites/nailong/eat.png",
+    "frames": 8,
+    "frameMs": 0
+  },
+  "play": {
+    "file": "sprites/nailong/play.png",
+    "frames": 8,
+    "frameMs": 0
+  },
+  "water": {
+    "file": "sprites/nailong/water.png",
+    "frames": 8,
+    "frameMs": 0
+  },
+  "sleep": {
+    "file": "sprites/nailong/sleep.png",
+    "frames": 8,
+    "frameMs": 0
+  }
+}
