@@ -363,23 +363,28 @@ def construir_alfombra():
 
 
 def construir_cama():
+    """Cama de madera a lo largo, con la cabecera a la izquierda para que Nailong duerma estirado."""
     OBJETO_ACTUAL[0] = "cama"
     frente = piso_y(236)
-    centro = (100 - 320, frente + 48)
-    azar = random.Random(11)
-    gajos = 9
-    for indice in range(gajos):
-        angulo = indice * 2 * pi / gajos + azar.uniform(-0.06, 0.06)
-        crecer = azar.uniform(0.9, 1.1)
-        esfera(
-            (centro[0] + cos(angulo) * 40, centro[1] + sin(angulo) * 37, 13 + azar.uniform(-1, 1)),
-            (21 * crecer, 14 * crecer, 13 * azar.uniform(0.9, 1.1)),
-            "coral",
-            CAPA_MUEBLE,
-            giro=(azar.uniform(-6, 6), azar.uniform(-6, 6), angulo * 180 / pi + 90),
-            organico=1.4,
-        )
-    cilindro((*centro, 9), 30, 14, "crema", CAPA_MUEBLE, bisel=6, inflar=True, organico=1.2)
+    x, y = 100 - 320, frente + 44
+    largo, fondo = 164, 84
+    for lado_x in (-1, 1):
+        for lado_y in (-1, 1):
+            cono((x + lado_x * (largo / 2 - 8), y + lado_y * (fondo / 2 - 7), 3), 3, 3.5, 6, "madera", CAPA_PEQUENO)
+    caja((x, y, 12), (largo - 6, fondo, 12), "madera", bisel=3)
+    # Cabecera alta y piecera baja, con el canto de arriba redondeado.
+    for lado, alto in ((-1, 58), (1, 30)):
+        borde = x + lado * (largo / 2 - 3)
+        caja((borde, y, alto / 2 + 4), (10, fondo, alto), "madera", bisel=3)
+        esfera((borde, y, alto + 4), (5.5, fondo / 2, 9), "madera", CAPA_MUEBLE)
+        for lado_y in (-1, 1):
+            cilindro((borde, y + lado_y * fondo / 2, alto / 2 + 4), 5, alto + 4, "madera", CAPA_MUEBLE, bisel=1.5)
+            esfera((borde, y + lado_y * fondo / 2, alto + 9), (6, 6, 5.5), "madera", CAPA_PEQUENO)
+    caja((x, y, 23), (largo - 14, fondo - 6, 12), "crema", bisel=5, inflar=True, organico=0.8)
+    caja((x - 50, y + 4, 32), (26, 58, 9), "nube", CAPA_MUEBLE, bisel=4, inflar=True, organico=0.8)
+    # Edredón tendido sobre la mitad de los pies, con el doblez de la sábana.
+    caja((x + 16, y - 1, 30.5), (100, fondo - 2, 4), "coral", bisel=2, inflar=True, organico=1.2)
+    caja((x - 30, y - 1, 31), (10, fondo - 1, 4.5), "nube", CAPA_PEQUENO, bisel=2, inflar=True)
 
 
 def construir_puf():

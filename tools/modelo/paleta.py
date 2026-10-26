@@ -37,6 +37,7 @@ RAMPAS = {
     "sabana": ["#7d879c", "#c9d0de", "#e9edf4", "#ffffff", "#ffffff"],
     "rojo": ["#3d0a10", "#7a1420", "#b8202c", "#d8343a", "#e85048"],
     "dorado": ["#5c3a0a", "#a0700f", "#d8a528", "#f2cf5a", "#fbe7a0"],
+    "cobija": ["#6a0e26", "#a91439", "#f14b4c", "#fa6454", "#fd8a72"],
 }
 
 # Rasgos pequeños de la cara: ganan el píxel aunque cubran solo parte de él,
