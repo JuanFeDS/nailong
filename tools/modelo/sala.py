@@ -445,13 +445,24 @@ def construir_juguetero():
 
 
 def construir_plato_y_pelota():
+    # Nailong come en su mesita, con plato, vaso y cubiertos, como uno más de la casa.
     OBJETO_ACTUAL[0] = "plato"
     frente = piso_y(330)
-    centro = (500 - 320, frente + 18)
-    cilindro((*centro, 5), 22, 10, "coral", bisel=4, inflar=True)
-    cilindro((*centro, 9), 16, 4, "comida", CAPA_PEQUENO)
-    for desvio_x, desvio_y in ((-6, 2), (5, -3), (2, 6), (-3, -5)):
-        esfera((centro[0] + desvio_x, centro[1] + desvio_y, 12), (3.5, 3.5, 2.5), "comida", CAPA_PEQUENO + 1)
+    centro = (500 - 320, frente + 28)
+    for lado_x in (-22, 22):
+        for lado_y in (-15, 15):
+            cilindro((centro[0] + lado_x, centro[1] + lado_y, 16), 2.8, 32, "madera")
+    caja((*centro, 28), (52, 36, 6), "madera", bisel=2)
+    cilindro((*centro, 35), 30, 4, "madera", bisel=2)
+    caja((centro[0] - 3, centro[1] - 1, 37.4), (30, 20, 0.8), "coral", CAPA_PEQUENO)
+    cilindro((centro[0] - 3, centro[1] - 1, 38.6), 10.5, 1.6, "crema", CAPA_PEQUENO, bisel=0.7)
+    cilindro((centro[0] - 3, centro[1] - 1, 39.6), 7.5, 1.2, "comida", CAPA_PEQUENO + 1, bisel=0.5)
+    for desvio_x, desvio_y in ((-6, 1), (-1, -3), (0, 3)):
+        esfera((centro[0] + desvio_x, centro[1] + desvio_y, 41), (2.8, 2.8, 2.2), "coral", CAPA_PEQUENO + 2)
+    esfera((centro[0] - 3, centro[1] + 2, 42), (3.2, 2.8, 2), "planta", CAPA_PEQUENO + 2)
+    caja((centro[0] - 18, centro[1] - 1, 37.8), (1.6, 14, 0.8), "metal", CAPA_PEQUENO + 1)
+    caja((centro[0] + 12, centro[1] - 1, 37.8), (1.6, 14, 0.8), "metal", CAPA_PEQUENO + 1)
+    cilindro((centro[0] + 18, centro[1] + 6, 42), 4, 10, "cielo", CAPA_PEQUENO, bisel=0.6)
     OBJETO_ACTUAL[0] = "pelota"
     frente = piso_y(344)
     centro = (300 - 320, frente + 11)
