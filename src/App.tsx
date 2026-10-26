@@ -23,8 +23,8 @@ import { supabase } from './lib/supabase'
 import { PLACES, pickWindow } from './lib/weather'
 
 const NOTICE_MS = 2500
-// Prueba de la sala renderizada desde el modelo 3D: se activa con ?sala3d en la URL.
-const SALA_3D = new URLSearchParams(location.search).has('sala3d')
+// La sala y Nailong renderizados desde el modelo 3D son los de siempre; ?sala2d vuelve a los dibujados a mano.
+const SALA_3D = !new URLSearchParams(location.search).has('sala2d')
 const KNOCK_FIRST_MS = 850
 const KNOCK_CYCLE_MS = 1600
 

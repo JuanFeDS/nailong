@@ -66,7 +66,7 @@ const SWING_FRAMES = 7
 const SWING_CYCLES = 2
 const WATER_URL = asset('sprites/processed/water.png')
 const WATER_SIDE_OFFSET = 78
-// Con ?sala3d Nailong también usa las hojas generadas desde el modelo 3D
+// En la sala 3D Nailong también usa las hojas generadas desde el modelo 3D
 // (tools/modelo/exportar.py); el índice dice cuántos cuadros trae cada una.
 type SheetName = keyof typeof nailongSprites
 const WATER_SIDE_OFFSET_3D = 92
@@ -81,7 +81,7 @@ const PLOT_SPOTS = [
 const OBJECT_SCALE = 2
 const SWING_SCALE = 2.6
 const scaleOf = (name: ItemKind) => (name === 'swing' ? SWING_SCALE : OBJECT_SCALE)
-// Muebles de la sala que tienen versión renderizada desde el modelo 3D (prueba con ?sala3d).
+// Muebles de la sala que tienen versión renderizada desde el modelo 3D.
 const OBJECTS_3D = new Set<ItemKind>([
   'rug', 'clock', 'wallshelf', 'bookshelf', 'sidetable', 'pouf', 'armchair', 'toybox',
   'frame', 'plant', 'bed', 'bowl', 'ball', 'door', 'backdoor',
