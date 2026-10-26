@@ -429,19 +429,48 @@ def construir_mesita():
 
 
 def construir_juguetero():
+    """Baúl de juguetes en tres cuartos, abierto y lleno, como el dibujado a mano."""
     OBJETO_ACTUAL[0] = "juguetero"
     frente = piso_y(336)
-    centro = (200 - 320, frente + 22)
-    caja((*centro, 18), (66, 42, 36), "madera", bisel=3.5)
-    caja((centro[0], centro[1] + 22, 54), (68, 4, 40), "madera", giro=(-24, 0, 0), bisel=2)
-    for desvio_x, rampa, radio in ((-20, "coral", 10), (20, "libro_verde", 8), (8, "cojin", 7)):
-        esfera((centro[0] + desvio_x, centro[1] + 2, 38), (radio, radio, radio), rampa, CAPA_PEQUENO)
-    osito = (centro[0] - 2, centro[1] + 6)
-    esfera((*osito, 40), (10, 8, 10), "madera", CAPA_PEQUENO)
-    esfera((*osito, 54), (9, 8, 8), "madera", CAPA_PEQUENO)
+    centro_x, centro_y = 200 - 320, frente + 26
+    giro = 18
+    coseno, seno = cos(radians(giro)), sin(radians(giro))
+
+    def lugar(dx, dy, z):
+        return (centro_x + dx * coseno - dy * seno, centro_y + dx * seno + dy * coseno, z)
+
+    ancho, fondo, alto, grosor = 66, 44, 34, 4
+    for indice, altura in enumerate((alto / 6, alto / 2, alto * 5 / 6)):
+        caja(lugar(0, -fondo / 2 + grosor / 2, altura), (ancho, grosor, alto / 3), "madera", grupo="tabla", giro=(0, 0, giro))
+    caja(lugar(0, fondo / 2 - grosor / 2, alto / 2), (ancho, grosor, alto), "madera", giro=(0, 0, giro))
     for lado in (-1, 1):
-        esfera((osito[0] + lado * 7, osito[1], 61), (3.5, 3, 3.5), "madera", CAPA_PEQUENO)
-    esfera((osito[0], osito[1] - 7, 52), (3.5, 2, 2.5), "crema", CAPA_PEQUENO)
+        caja(lugar(lado * (ancho / 2 - grosor / 2), 0, alto / 2), (grosor, fondo, alto), "madera", giro=(0, 0, giro))
+        caja(lugar(lado * (ancho / 2 + 0.6), 0, alto * 0.62), (0.8, 14, 4), "boiserie", CAPA_PEQUENO, giro=(0, 0, giro))
+        caja(lugar(lado * (ancho / 2 - 1), -fondo / 2 - 0.4, alto / 2), (5, 1, alto + 0.5), "dorado", CAPA_PEQUENO, giro=(0, 0, giro))
+    caja(lugar(0, 0, 3), (ancho - grosor * 2, fondo - grosor * 2, 6), "madera", giro=(0, 0, giro))
+
+    apertura = -108
+    centro_tapa = (0, -fondo / 2, 2)
+    tapa_y = centro_tapa[1] * cos(radians(apertura)) - centro_tapa[2] * sin(radians(apertura))
+    tapa_z = centro_tapa[1] * sin(radians(apertura)) + centro_tapa[2] * cos(radians(apertura))
+    caja(lugar(0, fondo / 2 + tapa_y, alto + tapa_z), (ancho + 2, fondo, 4), "madera", grupo="tabla", giro=(apertura, 0, giro), bisel=1.5)
+
+    juguetes = (
+        (-18, -4, 34, "coral", (10, 10, 10)),
+        (14, -8, 32, "cojin", (8, 8, 8)),
+        (24, 6, 33, "libro_verde", (7, 7, 7)),
+        (-4, 8, 36, "libro_azul", (8, 8, 8)),
+        (4, -12, 33, "dorado", (6, 6, 6)),
+    )
+    for dx, dy, z, rampa, radios in juguetes:
+        esfera(lugar(dx, dy, z), radios, rampa, CAPA_PEQUENO)
+    caja(lugar(-24, 8, 36), (9, 9, 9), "libro_rojo", CAPA_PEQUENO, giro=(12, 18, giro + 20), bisel=1)
+    osito = (6, 4)
+    esfera(lugar(*osito, 40), (9, 8, 9), "madera", CAPA_PEQUENO)
+    esfera(lugar(*osito, 52), (8.5, 7.5, 7.5), "madera", CAPA_PEQUENO)
+    for lado in (-1, 1):
+        esfera(lugar(osito[0] + lado * 6.5, osito[1], 59), (3.2, 2.6, 3.2), "madera", CAPA_PEQUENO)
+    esfera(lugar(osito[0], osito[1] - 6.5, 50), (3.4, 1.8, 2.4), "crema", CAPA_PEQUENO)
 
 
 def construir_plato_y_pelota():
@@ -553,6 +582,8 @@ def preparar_camara():
     escena.display.shading.show_specular_highlight = True
     escena.display.light_direction = Vector(DIRECCION_LUZ).normalized()
     escena.display.shading.shadow_intensity = INTENSIDAD_SOMBRA
+    # Sin este margen las caras planas se sombrean a sí mismas y salen moteadas.
+    escena.display.shadow_shift = 0.2
 
     datos = bpy.data.cameras.new("camara")
     datos.type = "ORTHO"
@@ -695,7 +726,7 @@ def pintar(identificadores: np.ndarray, luz: np.ndarray, luces: bool = True, lam
         rampas[identificadores == identificador] = pieza.rampa
     semilla = (columnas * 73856093) ^ (filas * 19349663)
     tonos[np.isin(rampas, list(TELAS)) & ((semilla % 11) == 0)] -= 1
-    veta_madera = ((columnas * 2654435761) ^ (filas // 5 * 40503)) % 13 == 0
+    veta_madera = ((columnas * 2654435761) ^ (filas // 6 * 40503)) % 31 == 0
     tonos[np.isin(rampas, list(MADERAS)) & veta_madera] -= 1
 
     tonos = np.clip(tonos, 0, TONOS - 1)
@@ -747,7 +778,9 @@ def renderizar_imagen(carpeta: Path, luces: bool, lampara: bool = True) -> Image
     luz = renderizar(carpeta / "luz.png", "STUDIO", "SINGLE", sombras=True)[..., 0]
     canales = np.rint(ids * 255).astype(np.int32)
     identificadores = canales[..., 0] + canales[..., 1] * 256
-    return pintar(moda(identificadores), bloques(luz).mean(axis=(1, 3)), luces, lampara)
+    luz_media = bloques(luz).mean(axis=(1, 3))
+    suavizada = sum(np.roll(luz_media, (fila, columna), axis=(0, 1)) for fila in (-1, 0, 1) for columna in (-1, 0, 1)) / 9
+    return pintar(moda(identificadores), suavizada, luces, lampara)
 
 
 def recortar_en_ancla(imagen: Image.Image, ancla_x: float, base: float) -> Image.Image:
