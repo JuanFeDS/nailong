@@ -156,12 +156,20 @@ button {
   border-radius: 22px 22px 0 0;
   background: var(--bg-lift);
   border-top: 4px solid color-mix(in oklch, var(--red) 55%, var(--bg));
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .menu__header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-bottom: 6px;
+  background: var(--bg-lift);
 }
 
 .menu__title {
