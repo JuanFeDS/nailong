@@ -3,6 +3,7 @@ import type { useEconomy } from '../hooks/useEconomy'
 import type { useGarden } from '../hooks/useGarden'
 import { asset } from '../lib/asset'
 import { COSTUMES } from '../lib/costumes'
+import { isHalloweenSeason } from '../lib/halloween'
 import { FLOORS, type HouseStyle, WALLS } from '../lib/house'
 import { MissionsView } from './MissionsView'
 import { NotificationToggle } from './NotificationToggle'
@@ -22,6 +23,8 @@ interface Props {
   onStyle: (style: HouseStyle) => void
   costume: string | null
   onCostume: (id: string | null) => void
+  halloween: boolean
+  onHalloween: (on: boolean) => void
   notice: string | null
   onNotice: (text: string) => void
   onTinker: () => void
@@ -39,7 +42,7 @@ const TITLES = {
   pantry: 'Despensa',
 }
 
-export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, style, onStyle, costume, onCostume, notice, onNotice, onTinker, onSignOut, onClose, initialView = 'main' }: Props) {
+export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, style, onStyle, costume, onCostume, halloween, onHalloween, notice, onNotice, onTinker, onSignOut, onClose, initialView = 'main' }: Props) {
   const lockedPlot = garden.plots.find((plot) => !plot.unlocked)
   const nextPlot = lockedPlot ? { slot: lockedPlot.slot, price: lockedPlot.unlock_price } : null
   const [view, setView] = useState<'main' | 'style' | 'costume' | 'missions' | 'shop' | 'pantry'>(initialView)
@@ -124,14 +127,22 @@ export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, s
 
         {view === 'costume' && (
           <section className="menu__section">
-            <button className="menu__row" onClick={() => onCostume(null)} aria-pressed={costume === null}>
-              <span>{costume === null ? '✓ ' : ''}Sin disfraz</span>
-            </button>
-            {COSTUMES.map((option) => (
-              <button key={option.id} className="menu__row" onClick={() => onCostume(option.id)} aria-pressed={costume === option.id}>
-                <span>{costume === option.id ? '✓ ' : ''}{option.label}</span>
-              </button>
-            ))}
+            <div className="costumes">
+              {[{ id: null, label: 'Sin disfraz' }, ...COSTUMES].map((option) => (
+                <button
+                  key={option.id ?? 'none'}
+                  className={costume === option.id ? 'costume costume--on' : 'costume'}
+                  onClick={() => onCostume(option.id)}
+                  aria-pressed={costume === option.id}
+                >
+                  <span
+                    className="costume__preview"
+                    style={{ backgroundImage: `url(${asset(option.id ? `sprites/nailong/${option.id}/idle_happy.png` : 'sprites/nailong/idle_happy.png')})` }}
+                  />
+                  <span className="costume__label">{option.label}</span>
+                </button>
+              ))}
+            </div>
           </section>
         )}
 
@@ -183,6 +194,12 @@ export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, s
               <h3 className="menu__heading">Ajustes</h3>
               <NotificationToggle row userId={userId} onMessage={onNotice} />
               <SoundToggle row />
+              {isHalloweenSeason() && (
+                <button className="menu__row" onClick={() => onHalloween(!halloween)} aria-pressed={halloween}>
+                  <PixelIcon name="house" size={20} />
+                  <span>Halloween: {halloween ? 'con adornos' : 'sin adornos'}</span>
+                </button>
+              )}
             </section>
 
             <section className="menu__section">

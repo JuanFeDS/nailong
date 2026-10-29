@@ -17,6 +17,7 @@ export interface GameSpec<State> {
   update: (state: State, dt: number, pointer: Pointer, time: number) => void
   draw: (context: CanvasRenderingContext2D, state: State, images: Record<string, HTMLImageElement>, time: number) => void
   score: (state: State) => number
+  over?: (state: State) => boolean
 }
 
 interface Props<State> {
@@ -104,7 +105,7 @@ export function MinigameCanvas<State>({ id, spec, onExit }: Props<State>) {
         context.fillStyle = '#ffd84d'
         context.fillText(String(Math.ceil(countdown)), spec.width / 2, spec.height / 2)
       }
-      if (gameTime >= spec.seconds) {
+      if (gameTime >= spec.seconds || spec.over?.(state)) {
         const score = spec.score(state)
         const previous = loadRecord(id)
         const isNew = score > previous

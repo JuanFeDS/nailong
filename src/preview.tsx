@@ -58,6 +58,8 @@ function Preview() {
       <Room
         sala3d={params.has('proto')}
         costume={params.get('costume')}
+        halloween={params.has('halloween')}
+        onMinigames={() => console.log('minijuegos')}
         items={items.filter((item) => item.place === place)}
         waterTrigger={waterTrigger}
         onWaterDone={(slot) => console.log('regado', slot)}

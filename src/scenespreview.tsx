@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { AwayRoom } from './components/AwayRoom'
 import { MenuSheet } from './components/MenuSheet'
+import { Minigames } from './components/Minigames'
 import { PixelIcon } from './components/PixelIcon'
 import { IncomingScene, KnockingScene } from './components/TravelScenes'
 import './style.css'
@@ -25,8 +26,10 @@ function TopbarPreview() {
           userId="prueba"
           canTinker
           costume={null}
+          halloween
+          onHalloween={() => undefined}
           onCostume={() => undefined}
-          initialView={mode === 'shop' ? 'shop' : mode === 'missions' ? 'missions' : mode === 'pantry' ? 'pantry' : 'main'}
+          initialView={mode === 'costume' ? 'costume' : mode === 'shop' ? 'shop' : mode === 'missions' ? 'missions' : mode === 'pantry' ? 'pantry' : 'main'}
           economy={{
             wallet: { coins: 85, earned_today: 25, feeds: 1, plays: 1, claimed: ['play'] },
             shop: [
@@ -78,6 +81,7 @@ function TopbarPreview() {
 createRoot(document.getElementById('root')!).render(
   <main className="home">
     {mode === 'incoming' && <IncomingScene from="gabi" />}
+    {mode === 'minigames' && <Minigames costume={new URLSearchParams(location.search).get('costume')} onExit={() => console.log('volver')} />}
     {mode === 'knocking' && (
       <>
         <KnockingScene />
@@ -88,6 +92,6 @@ createRoot(document.getElementById('root')!).render(
     {mode === 'waiting' && <AwayRoom variant="waiting" host="gabi" stay={null} />}
     {mode === 'lost' && <AwayRoom variant="lost" host="juan" stay={null} />}
     {mode === 'visiting' && <AwayRoom variant="visiting" host="gabi" stay="5 h 12 min" />}
-    {(mode === 'topbar' || mode === 'shop' || mode === 'missions' || mode === 'pantry') && <TopbarPreview />}
+    {(mode === 'topbar' || mode === 'shop' || mode === 'missions' || mode === 'pantry' || mode === 'costume') && <TopbarPreview />}
   </main>,
 )

@@ -4,6 +4,7 @@ import { AwayRoom } from './components/AwayRoom'
 import { FoodPicker } from './components/FoodPicker'
 import { GardenSheet } from './components/GardenSheet'
 import { Login } from './components/Login'
+import { Minigames } from './components/Minigames'
 import { MenuSheet } from './components/MenuSheet'
 import { PixelIcon } from './components/PixelIcon'
 import { Room } from './components/Room'
@@ -18,6 +19,7 @@ import { useWeatherCode } from './hooks/useWeather'
 import { ITEM_LABELS } from './lib/house'
 import { isSleepTime, WAKE_LABEL } from './lib/sleep'
 import { loadCostume, saveCostume } from './lib/costumes'
+import { loadHalloween, saveHalloween } from './lib/halloween'
 import { formatDuration } from './lib/time'
 import { playSfx } from './lib/sound'
 import { supabase } from './lib/supabase'
@@ -55,6 +57,12 @@ function Home({ userId }: { userId: string }) {
   const [tinkering, setTinkering] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [costume, setCostume] = useState(loadCostume)
+  const [halloween, setHalloween] = useState(loadHalloween)
+  const [minigames, setMinigames] = useState(false)
+  const toggleHalloween = (on: boolean) => {
+    setHalloween(on)
+    saveHalloween(on)
+  }
   const wear = (id: string | null) => {
     setCostume(id)
     saveCostume(id)
@@ -129,6 +137,14 @@ function Home({ userId }: { userId: string }) {
     letIn()
   }
 
+  if (minigames) {
+    return (
+      <main className="home">
+        <Minigames costume={costume} onExit={() => setMinigames(false)} />
+      </main>
+    )
+  }
+
   return (
     <main className="home">
       <header className="topbar">
@@ -158,6 +174,8 @@ function Home({ userId }: { userId: string }) {
           onStyle={changeStyle}
           costume={costume}
           onCostume={wear}
+          halloween={halloween}
+          onHalloween={toggleHalloween}
           notice={notice}
           onNotice={showNotice}
           onTinker={() => {
@@ -173,6 +191,8 @@ function Home({ userId }: { userId: string }) {
         <Room
           sala3d={SALA_3D}
           costume={costume}
+          halloween={halloween}
+          onMinigames={() => setMinigames(true)}
           items={items.filter((item) => item.place === location)}
           plots={garden.plots}
           waterTrigger={waterTrigger}

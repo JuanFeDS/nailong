@@ -18,6 +18,7 @@ import {
   WALL_HEIGHT,
   WALLS,
 } from '../lib/house'
+import { HALLOWEEN_DECOR } from '../lib/halloween'
 import nailongSprites from '../lib/nailongSprites.json'
 import { WINDOW_NAMES, type WindowName } from '../lib/weather'
 const MOBILE_VIEW_WIDTH = 360
@@ -52,6 +53,7 @@ const WALK_BACK_URL = asset('sprites/processed/walk_back.png')
 const WALK_FRAMES = 4
 const WALK_FRAME_MS = 140
 const SOURCE_CELL = 64
+const MINIGAME_TAP_MARGIN = 10
 const SPRITE_SIZE = 128
 
 const ACTION_DURATION: Record<Task, number> = {
@@ -72,6 +74,7 @@ type SheetName = keyof typeof nailongSprites
 const WATER_SIDE_OFFSET_3D = 92
 const SOCCER_FRAMES = 8
 const PATIO_URL = asset('rooms/patio.png')
+const PATIO_NIGHT_URL = asset('rooms/patio_noche.png')
 const PLOT_SPOTS = [
   { slot: 0, x: 400, y: 338 },
   { slot: 1, x: 520, y: 338 },
@@ -103,6 +106,8 @@ interface Placement {
 interface Props {
   sala3d?: boolean
   costume?: string | null
+  halloween?: boolean
+  onMinigames?: () => void
   items: HouseItem[]
   waterTrigger: { id: number; slot: number } | null
   onWaterDone: (slot: number) => void
@@ -152,11 +157,11 @@ function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 
 }
 
 export function Room({
-  sala3d = false, costume = null, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend,
+  sala3d = false, costume = null, halloween = false, onMinigames, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latest = useRef({ sala3d, costume, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
-  latest.current = { sala3d, costume, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
+  const latest = useRef({ sala3d, costume, halloween, onMinigames, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
+  latest.current = { sala3d, costume, halloween, onMinigames, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -181,6 +186,8 @@ export function Room({
     if (latest.current.sala3d) backdropImage.src = BACKDROP_3D
     const patioImage = new Image()
     patioImage.src = PATIO_URL
+    const patioNightImage = new Image()
+    if (latest.current.halloween) patioNightImage.src = PATIO_NIGHT_URL
     const horizon = () => WALL_HEIGHT[latest.current.place]
     const roomWidth = () => PLACE_WIDTH[latest.current.place]
     const wallImages = loadImages(WALLS, 'walls')
@@ -379,6 +386,22 @@ export function Room({
       }
       const clickX = viewX + cameraX
       const clickY = ((event.clientY - rect.top) / rect.height) * HEIGHT
+      if (latest.current.halloween && latest.current.onMinigames) {
+        const minigameDecor = HALLOWEEN_DECOR[latest.current.place].find((decor) => {
+          if (decor.action !== 'minigames') return false
+          const image = decorImage(decor.sprite)
+          if (!ready(image)) return false
+          return (
+            Math.abs(clickX - decor.x) <= image.naturalWidth / 2 + MINIGAME_TAP_MARGIN &&
+            clickY >= decor.y - image.naturalHeight - MINIGAME_TAP_MARGIN &&
+            clickY <= decor.y + MINIGAME_TAP_MARGIN
+          )
+        })
+        if (minigameDecor) {
+          latest.current.onMinigames()
+          return
+        }
+      }
       if (performance.now() < walker.busyUntil) return
 
       if (latest.current.place === 'patio') {
@@ -587,6 +610,90 @@ export function Room({
       for (const name of Object.keys(nailongSprites) as SheetName[]) mixed[name] = ready(own[name]) ? own[name] : sheets[name]
       return mixed
     }
+    const decorImages = new Map<string, HTMLImageElement>()
+    const decorImage = (sprite: string) => {
+      let image = decorImages.get(sprite)
+      if (!image) {
+        image = new Image()
+        image.src = asset(`rooms/halloween/${sprite}.png`)
+        decorImages.set(sprite, image)
+      }
+      return image
+    }
+    const decorDrawables = (time: number) =>
+      latest.current.halloween
+        ? HALLOWEEN_DECOR[latest.current.place].map((decor) => ({
+            depth: decor.depth ?? (decor.kind === 'floor' ? decor.y : decor.kind === 'float' ? 999 : -1),
+            draw: () => {
+              const image = decorImage(decor.sprite)
+              if (!ready(image)) return
+              if (decor.kind === 'floor') {
+                context.drawImage(image, decor.x - image.naturalWidth / 2, decor.y - image.naturalHeight)
+              } else if (decor.kind === 'float') {
+                const offset = Math.sin(time / (decor.thread ? 900 : 700) + decor.x) * (decor.bob ?? 0)
+                const top = decor.y + offset
+                if (decor.thread) {
+                  context.fillStyle = 'rgba(225, 225, 240, 0.75)'
+                  context.fillRect(Math.round(decor.x), 0, 1, Math.max(0, top))
+                }
+                context.save()
+                context.globalAlpha = decor.alpha ?? 1
+                context.drawImage(image, decor.x - image.naturalWidth / 2, top)
+                context.restore()
+              } else if (decor.kind === 'topRight') {
+                context.save()
+                context.translate(decor.x, decor.y)
+                context.scale(-1, 1)
+                context.drawImage(image, 0, 0)
+                context.restore()
+              } else {
+                context.drawImage(image, decor.x, decor.y)
+              }
+            },
+          }))
+        : []
+    const drawFog = (time: number) => {
+      const span = roomWidth() + 420
+      for (let bank = 0; bank < 11; bank += 1) {
+        const speed = 0.010 + (bank % 3) * 0.004
+        const x = ((bank * 151 + time * speed) % span) - 210
+        const y = 205 + ((bank * 61) % 150)
+        const radius = 120 + (bank % 4) * 28
+        context.save()
+        context.translate(x, y)
+        context.scale(1, 0.24)
+        const gradient = context.createRadialGradient(0, 0, 0, 0, 0, radius)
+        gradient.addColorStop(0, 'rgba(196, 204, 232, 0.2)')
+        gradient.addColorStop(1, 'rgba(196, 204, 232, 0)')
+        context.fillStyle = gradient
+        context.fillRect(-radius, -radius, radius * 2, radius * 2)
+        context.restore()
+      }
+    }
+    const drawHalloweenAmbience = (time: number) => {
+      context.save()
+      context.globalCompositeOperation = 'multiply'
+      context.fillStyle = latest.current.place === 'patio' ? 'rgb(140, 130, 190)' : 'rgb(150, 132, 188)'
+      context.fillRect(Math.round(cameraX), 0, viewWidth, HEIGHT)
+      context.globalCompositeOperation = 'source-over'
+      if (latest.current.place === 'patio') drawFog(time)
+      context.globalCompositeOperation = 'lighter'
+      for (const decor of HALLOWEEN_DECOR[latest.current.place]) {
+        if (!decor.glow) continue
+        const image = decorImage(decor.sprite)
+        const x = decor.x
+        const y = decor.y - (ready(image) ? image.naturalHeight * 0.55 : 14)
+        const color = decor.glow.color ?? '255, 150, 40'
+        const strength = 0.38 * (decor.glow.flicker ? 0.75 + 0.25 * Math.sin(time / 90 + decor.x) : 1)
+        const gradient = context.createRadialGradient(x, y, 0, x, y, decor.glow.radius)
+        gradient.addColorStop(0, `rgba(${color}, ${strength})`)
+        gradient.addColorStop(1, `rgba(${color}, 0)`)
+        context.fillStyle = gradient
+        context.fillRect(x - decor.glow.radius, y - decor.glow.radius, decor.glow.radius * 2, decor.glow.radius * 2)
+      }
+      context.restore()
+    }
+
     const sleepSheetNow = () => (sheets ? worn()!.sleep : sleepSprite)
 
     // Los renders del modelo 3D dejan unos píxeles vacíos bajo los pies; se mide cuántos
@@ -750,7 +857,9 @@ export function Room({
       if (latest.current.sala3d && !inPatio) {
         if (backdropImage.complete && backdropImage.naturalWidth > 0) context.drawImage(backdropImage, 0, 0, WIDTH, HEIGHT)
       } else if (inPatio) {
-        if (patioImage.complete && patioImage.naturalWidth > 0) context.drawImage(patioImage, 0, 0, roomWidth(), HEIGHT)
+        if (latest.current.halloween && !patioNightImage.src) patioNightImage.src = PATIO_NIGHT_URL
+        const patioBackground = latest.current.halloween && patioNightImage.complete && patioNightImage.naturalWidth > 0 ? patioNightImage : patioImage
+        if (patioBackground.complete && patioBackground.naturalWidth > 0) context.drawImage(patioBackground, 0, 0, roomWidth(), HEIGHT)
       } else {
         if (wallImage.complete && wallImage.naturalWidth > 0) {
           context.drawImage(wallImage, 0, 0, WIDTH, WALL_HEIGHT.room)
@@ -783,6 +892,7 @@ export function Room({
           : []
       const drawables = [
         ...gardenDrawables,
+        ...decorDrawables(time),
         ...current.map((item) => ({
           depth: item.flat ? -1 : item.baseY,
           draw: () => {
@@ -817,6 +927,7 @@ export function Room({
             : { depth: walker.y, draw: () => (sheets ? drawNailong3d(time, worn()!) : drawNailong(time)) },
       ].sort((first, second) => first.depth - second.depth)
       drawables.forEach((drawable) => drawable.draw())
+      if (latest.current.halloween) drawHalloweenAmbience(time)
       context.restore()
 
       if (latest.current.sleeping) {

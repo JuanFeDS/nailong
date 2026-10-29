@@ -223,6 +223,40 @@ button {
   border-color: var(--sun);
 }
 
+.costumes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.costume {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 4px;
+  border: 3px solid transparent;
+  border-radius: 14px;
+  background: color-mix(in oklch, var(--ink) 8%, transparent);
+  color: var(--ink);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.costume--on {
+  border-color: var(--sun);
+}
+
+.costume__preview {
+  width: 100%;
+  max-width: 88px;
+  aspect-ratio: 1;
+  background-repeat: no-repeat;
+  background-size: 400% 100%;
+  background-position: 0 0;
+  image-rendering: pixelated;
+}
+
 .menu__row svg {
   color: var(--sun);
 }
@@ -877,4 +911,112 @@ button {
   font-size: 0.9rem;
   font-weight: 700;
   text-align: center;
+}
+
+.minigames {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.minigames__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--sun);
+}
+
+.minigames__card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  border: 3px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-lift);
+  color: var(--ink);
+  text-align: left;
+}
+
+.minigames__card:active {
+  border-color: var(--sun);
+}
+
+.minigames__art {
+  display: block;
+  width: 100%;
+  aspect-ratio: 18 / 7;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  image-rendering: pixelated;
+}
+
+.minigames__name {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.minigames__blurb {
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+
+.minigames__record {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--sun);
+}
+
+.minigame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.minigame__stage {
+  position: relative;
+  width: min(100%, 420px);
+}
+
+.minigame__canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  image-rendering: pixelated;
+  touch-action: none;
+  user-select: none;
+}
+
+.minigame__result {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 12px;
+  padding: 28px;
+  border-radius: var(--radius);
+  background: color-mix(in oklch, var(--bg) 88%, transparent);
+  text-align: center;
+}
+
+.minigame__score {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 2.2rem;
+  color: var(--sun);
+}
+
+.minigame__record {
+  margin: 0 0 8px;
+  font-weight: 800;
+  color: var(--ink);
 }

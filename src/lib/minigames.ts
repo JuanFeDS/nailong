@@ -1,6 +1,7 @@
 export const MINIGAMES = [
-  { id: 'ghosts', title: 'Caza fantasmas', blurb: 'Toca los fantasmas antes de que se vayan. Los murciélagos restan puntos.' },
-  { id: 'catch', title: 'Atrapa dulces', blurb: 'Mueve a Nailong y atrapa dulces y calabazas. Esquiva los fantasmas.' },
+  { id: 'ghosts', art: 'minigames/ghosts.svg', title: 'Caza fantasmas', blurb: 'Toca los fantasmas antes de que se vayan. Los murciélagos restan puntos.' },
+  { id: 'memory', art: 'minigames/memory.svg', title: 'Memoria de calabazas', blurb: 'Repite la secuencia de calabazas que se iluminan. Cada ronda suma una.' },
+  { id: 'catch', art: 'minigames/catch.svg', title: 'Atrapa dulces', blurb: 'Mueve a Nailong y atrapa dulces y calabazas. Esquiva los fantasmas.' },
 ] as const
 
 export type MinigameId = (typeof MINIGAMES)[number]['id']
