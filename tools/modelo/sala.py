@@ -85,6 +85,18 @@ RAMPAS = {
     "libro_azul": ["#0e1c40", "#1d3a6a", "#21436f", "#316b95", "#4a8ab4", "#72aacc"],
     "libro_verde": ["#0f3a22", "#1d6a3a", "#2f9a50", "#52c26c", "#8be0a0", "#b4f0c4"],
     "libro_crema": ["#8a6440", "#d8b07a", "#f0c88a", "#fdd49c", "#fde2b8", "#fff0d8"],
+    "calabaza_h": ["#5c1f08", "#b8400c", "#e8600f", "#f58a2a", "#f9a84a", "#fcc878"],
+    "brasa": ["#8a3a0a", "#d86a10", "#f89a1c", "#ffc040", "#ffe070", "#fff2b0"],
+    "luz_morada": ["#3b1f5c", "#6a3aa8", "#9a5ae0", "#b88cf8", "#d8b8ff", "#f0e0ff"],
+    "piedra": ["#22222c", "#3c3c4a", "#5a5a6c", "#7c7c90", "#9a9ab0", "#b8b8cc"],
+    "piedra_oscura": ["#14141c", "#22222c", "#32323e", "#44445a", "#585872", "#6c6c88"],
+    "tela_arana": ["#8c88a0", "#bcb8d0", "#dcd8ec", "#eeeaf8", "#ffffff", "#ffffff"],
+    "negro_h": ["#050508", "#0b0b12", "#14141c", "#1c1c28", "#26263a", "#30304a"],
+    "murcielago_h": ["#0b0b12", "#1a1a24", "#2b2b38", "#3c3c4c", "#4c4c60", "#5c5c78"],
+    "brebaje": ["#1a5a20", "#38b43c", "#6adc4a", "#a0f060", "#d0ff90", "#f0ffc0"],
+    "fantasma_h": ["#7d879c", "#c9d0de", "#e9edf4", "#ffffff", "#ffffff", "#ffffff"],
+    "corteza": ["#1a100c", "#2e1e16", "#44301f", "#5a4028", "#70523a", "#86684a"],
+    "hueso": ["#6a5a40", "#b8a47a", "#dcc8a0", "#efe0bc", "#f8eed0", "#fff8e0"],
 }
 
 # Diez tonos por material. Cada mueble los reparte según su propia luz, como haría quien
@@ -555,7 +567,207 @@ def construir_planta():
         )
 
 
-def construir_sala(semilla: int = 7):
+def linea(a, b, rampa, grosor=1.4, y=-6.5, capa=CAPA_PEQUENO):
+    """Un trazo recto en el plano de la pared, de un punto (x, z) a otro."""
+    (x1, z1), (x2, z2) = a, b
+    largo = ((x2 - x1) ** 2 + (z2 - z1) ** 2) ** 0.5
+    angulo = -np.degrees(np.arctan2(z2 - z1, x2 - x1))
+    return caja(((x1 + x2) / 2, y, (z1 + z2) / 2), (largo, 1.2, grosor), rampa, capa, giro=(0, angulo, 0))
+
+
+def construir_calabaza(nombre, radio, centro_x, base_y, caras=True):
+    """Calabaza gorda de gajos, con ojos y boca tallados que brillan, vista de tres cuartos."""
+    OBJETO_ACTUAL[0] = nombre
+    centro = (centro_x - 320, piso_y(base_y) + radio)
+    alto = radio * 0.82
+    for desvio, factor in ((0, 1.0), (-0.5, 0.82), (0.5, 0.82), (-0.28, 0.9), (0.28, 0.9)):
+        esfera((centro[0] + desvio * radio, centro[1] + (0.18 * radio if desvio else 0), alto), (radio * 0.62 * (1.08 if desvio == 0 else 1), radio * 0.82 * factor, alto * factor), "calabaza_h", CAPA_MUEBLE)
+    cilindro((centro[0] + radio * 0.05, centro[1], alto * 2 - 1), radio * 0.12, radio * 0.34, "planta", CAPA_PEQUENO, giro=(0, 8, 0))
+    if not caras:
+        return
+    def superficie_en(z):
+        """Profundidad del frente de la calabaza a esa altura, para pegar la cara sobre la cáscara."""
+        relativo = min(abs(z - alto) / alto, 0.95)
+        return centro[1] - radio * 0.82 * (1 - relativo ** 2) ** 0.5 - 0.3
+
+    for lado in (-1, 1):
+        z_ojo = alto * 1.5
+        caja((centro[0] + lado * radio * 0.36, superficie_en(z_ojo), z_ojo), (radio * 0.32, 1.4, radio * 0.28), "brasa", CAPA_PEQUENO, giro=(0, 0, 0), emisivo=True)
+    for indice in range(5):
+        z_boca = alto * (1.0 - (0.12 if indice % 2 else 0))
+        caja((centro[0] + (indice - 2) * radio * 0.24, superficie_en(z_boca), z_boca), (radio * 0.2, 1.4, radio * 0.18), "brasa", CAPA_PEQUENO, emisivo=True)
+
+
+def construir_lapida(nombre, centro_x, base_y, cruz=False):
+    OBJETO_ACTUAL[0] = nombre
+    centro = (centro_x - 320, piso_y(base_y) + 6)
+    esfera((centro[0], centro[1] + 1, 1.5), (17, 11, 3), "colina", CAPA_MUEBLE)
+    if cruz:
+        caja((centro[0], centro[1], 24), (8, 5, 46), "piedra", CAPA_MUEBLE, bisel=0.8)
+        caja((centro[0], centro[1], 33), (26, 5, 8), "piedra", CAPA_MUEBLE, bisel=0.8)
+        return
+    caja((centro[0], centro[1], 17), (22, 5.5, 34), "piedra", CAPA_MUEBLE, bisel=0.8)
+    cilindro((centro[0], centro[1], 34), 11, 5.5, "piedra", CAPA_MUEBLE, giro=(90, 0, 0), suave=False)
+    caja((centro[0], centro[1] - 2.9, 30), (3, 1, 14), "piedra_oscura", CAPA_PEQUENO)
+    caja((centro[0], centro[1] - 2.9, 33), (11, 1, 3), "piedra_oscura", CAPA_PEQUENO)
+
+
+def construir_murcielago():
+    OBJETO_ACTUAL[0] = "bat"
+    x, z, y = 0, 60, -6
+    esfera((x, y, z), (3.4, 2.4, 5), "murcielago_h", CAPA_PEQUENO)
+    esfera((x, y - 0.5, z + 6.5), (3.2, 2.4, 3), "murcielago_h", CAPA_PEQUENO)
+    for lado in (-1, 1):
+        cono((x + lado * 2.2, y, z + 10), 1.6, 0.1, 4, "murcielago_h", CAPA_PEQUENO)
+        esfera((x + lado * 1.3, y - 2.4, z + 6.8), (0.7, 0.4, 0.7), "brasa", CAPA_PEQUENO + 1, emisivo=True)
+        for desvio_x, desvio_z, radios in ((7, 3, (7, 0.8, 5)), (14, 0, (6.5, 0.8, 4)), (20, -3.5, (5.5, 0.8, 3.2))):
+            esfera((x + lado * desvio_x, y + 0.5, z + desvio_z), radios, "murcielago_h", CAPA_PEQUENO, giro=(0, lado * -14, 0))
+
+
+def construir_telarana():
+    OBJETO_ACTUAL[0] = "web"
+    x0, z0 = -316, ALTO_PARED - 1
+    largo = 78
+    angulos = [radians(grados) for grados in (4, 22, 40, 58, 76, 90)]
+    radios = (20, 38, 58, 78)
+    for angulo in angulos:
+        linea((x0, z0), (x0 + largo * cos(angulo), z0 - largo * sin(angulo)), "tela_arana", 1.5)
+    for radio in radios[:-1]:
+        puntos = [(x0 + radio * cos(angulo), z0 - radio * sin(angulo) * (1 - 0.08 * radio / 58)) for angulo in angulos]
+        for a, b in zip(puntos, puntos[1:]):
+            linea(a, b, "tela_arana", 1.3)
+    caja((x0 + 14, -6, z0 - 40), (1, 1, 1), "tela_arana", CAPA_PEQUENO)
+    esfera((x0 + 52, -6.5, z0 - 56), (3, 2, 3), "murcielago_h", CAPA_PEQUENO)
+    for patas in range(3):
+        linea((x0 + 52, z0 - 56), (x0 + 52 + (patas - 1) * 7, z0 - 49), "murcielago_h", 0.8, -6.8)
+
+
+def construir_luces():
+    OBJETO_ACTUAL[0] = "lights"
+    inicio, fin = 190 - 320, 560 - 320
+    mitad, centro = (fin - inicio) / 2, (inicio + fin) / 2
+    z_arriba, caida = pared_z(10), 20
+    puntos = []
+    for indice in range(13):
+        x = inicio + (fin - inicio) * indice / 12
+        puntos.append((x, z_arriba - caida * (1 - ((x - centro) / mitad) ** 2)))
+    for a, b in zip(puntos, puntos[1:]):
+        linea(a, b, "metal", 0.9, -6.5, CAPA_DETALLE)
+    for indice, (x, z) in enumerate(puntos[1:-1]):
+        esfera((x, -6.5, z - 4), (3.6, 3.6, 4.4), "brasa" if indice % 2 else "luz_morada", CAPA_PEQUENO, emisivo=True)
+
+
+def construir_caldero(nombre, centro_x, base_y):
+    OBJETO_ACTUAL[0] = nombre
+    centro = (centro_x - 320, piso_y(base_y) + 17)
+    for lado_x in (-1, 1):
+        for lado_y in (-1, 1):
+            cono((centro[0] + lado_x * 9, centro[1] + lado_y * 8, 3), 2.4, 1.6, 6, "metal", CAPA_MUEBLE)
+    esfera((centro[0], centro[1], 14), (16, 15.5, 8.4), "metal", CAPA_MUEBLE)
+    bpy.ops.mesh.primitive_torus_add(major_radius=14, minor_radius=2.4, location=(centro[0], centro[1], 22))
+    registrar(bpy.context.object, "metal", CAPA_MUEBLE, suave=True)
+    cilindro((centro[0], centro[1], 22.4), 13.2, 1.4, "brebaje", CAPA_PEQUENO, emisivo=True)
+    for desvio_x, desvio_y, radio in ((-5, 2, 2.6), (4, -3, 2), (6, 4, 1.6), (-2, -5, 1.4)):
+        esfera((centro[0] + desvio_x, centro[1] + desvio_y, 24.4), (radio, radio, radio * 0.8), "brebaje", CAPA_PEQUENO + 1, emisivo=True)
+    caja((centro[0] + 14.5, centro[1] - 2, 15), (1.6, 5, 7), "dorado", CAPA_PEQUENO)
+
+
+def construir_fantasma(nombre="ghost"):
+    OBJETO_ACTUAL[0] = nombre
+    cono((0, 0, 14), 13, 9.5, 24, "fantasma_h", CAPA_MUEBLE)
+    esfera((0, 0, 29), (10.5, 9.5, 11), "fantasma_h", CAPA_MUEBLE)
+    for indice in range(6):
+        angulo = indice * pi / 3
+        esfera((cos(angulo) * 11.2, sin(angulo) * 10.2, 3.5 + 1.8 * (indice % 2)), (3.8, 3.8, 3.2), "fantasma_h", CAPA_MUEBLE)
+    for lado in (-1, 1):
+        esfera((lado * 13, -1, 20), (3.2, 3.4, 6.5), "fantasma_h", CAPA_MUEBLE, giro=(0, lado * 28, 0))
+        esfera((lado * 4.2, -9.6, 31), (1.9, 1.1, 3.4), "negro_h", CAPA_PEQUENO)
+    esfera((0, -9.4, 24.5), (2.3, 1.1, 3.2), "negro_h", CAPA_PEQUENO)
+
+
+def construir_arana_colgante():
+    OBJETO_ACTUAL[0] = "spider"
+    x, z, y = 0, 60, -6
+    esfera((x, y, z), (5.5, 4, 5), "murcielago_h", CAPA_PEQUENO)
+    esfera((x, y - 0.5, z + 7), (3.4, 3, 3.2), "murcielago_h", CAPA_PEQUENO)
+    for lado in (-1, 1):
+        esfera((x + lado * 1.5, y - 3, z + 7.6), (0.9, 0.5, 0.9), "brasa", CAPA_PEQUENO + 1, emisivo=True)
+        for patas in range(4):
+            altura = z + 3 - patas * 2.4
+            codo = (x + lado * (9 + patas * 0.6), altura + 6)
+            punta = (x + lado * (15 + patas * 1.2), altura - 5)
+            linea((x + lado * 3, altura), codo, "murcielago_h", 1.2, y)
+            linea(codo, punta, "murcielago_h", 1.2, y)
+
+
+def construir_velas(nombre, centro_x, base_y):
+    OBJETO_ACTUAL[0] = nombre
+    centro = (centro_x - 320, piso_y(base_y) + 7)
+    for desvio_x, desvio_y, alto in ((-9, 2, 13), (0, -3, 19), (10, 3, 10)):
+        cilindro((centro[0] + desvio_x, centro[1] + desvio_y, alto / 2), 3.6, alto, "hueso", CAPA_MUEBLE)
+        esfera((centro[0] + desvio_x + 1.8, centro[1] + desvio_y - 2.6, alto - 3), (1.1, 1.1, 2.4), "hueso", CAPA_PEQUENO)
+        esfera((centro[0] + desvio_x, centro[1] + desvio_y, alto + 3), (1.7, 1.7, 3.4), "brasa", CAPA_PEQUENO, emisivo=True)
+    cilindro((centro[0], centro[1], 0.8), 15, 1.6, "metal", CAPA_MUEBLE)
+
+
+def construir_cuervo(nombre, centro_x, base_y, k=1.9):
+    OBJETO_ACTUAL[0] = nombre
+    centro = (centro_x - 320, piso_y(base_y) + 4 * k)
+    esfera((centro[0], centro[1], 9 * k), (6.5 * k, 9 * k, 6.5 * k), "murcielago_h", CAPA_MUEBLE, giro=(25, 0, 0))
+    esfera((centro[0], centro[1] - 7 * k, 17 * k), (4.2 * k, 4 * k, 4.2 * k), "murcielago_h", CAPA_MUEBLE)
+    caja((centro[0], centro[1] - 11.5 * k, 16.5 * k), (2.2 * k, 5 * k, 1.8 * k), "dorado", CAPA_PEQUENO)
+    esfera((centro[0] + 2.2 * k, centro[1] - 9.5 * k, 18.4 * k), (0.9 * k, 0.5 * k, 0.9 * k), "brasa", CAPA_PEQUENO + 1, emisivo=True)
+    caja((centro[0], centro[1] + 9 * k, 7.5 * k), (4 * k, 8 * k, 1.6 * k), "murcielago_h", CAPA_MUEBLE, giro=(-20, 0, 0))
+    for lado in (-1, 1):
+        esfera((centro[0] + lado * 6.2 * k, centro[1] + 0.5 * k, 9.5 * k), (1.8 * k, 7 * k, 5.4 * k), "negro_h", CAPA_MUEBLE, giro=(20, 0, lado * 10))
+        caja((centro[0] + lado * 2 * k, centro[1], 2.2 * k), (0.9 * k, 0.9 * k, 4.4 * k), "dorado", CAPA_PEQUENO)
+
+
+def construir_calavera(nombre, centro_x, base_y, k=1.6):
+    OBJETO_ACTUAL[0] = nombre
+    centro = (centro_x - 320, piso_y(base_y) + 8 * k)
+    for giro in (35, -35):
+        cilindro((centro[0], centro[1] + 3 * k, 1.6 * k), 1.5 * k, 24 * k, "hueso", CAPA_MUEBLE, giro=(0, 90, giro))
+    esfera((centro[0], centro[1] - k, 8.5 * k), (7.2 * k, 6.5 * k, 6.4 * k), "hueso", CAPA_MUEBLE)
+    caja((centro[0], centro[1] - 3.5 * k, 3.6 * k), (5.2 * k, 4 * k, 3.2 * k), "hueso", CAPA_MUEBLE)
+    for lado in (-1, 1):
+        esfera((centro[0] + lado * 2.8 * k, centro[1] - 6.2 * k, 9.4 * k), (1.9 * k, 0.9 * k, 2.1 * k), "negro_h", CAPA_PEQUENO)
+    esfera((centro[0], centro[1] - 6.6 * k, 6.6 * k), (0.8 * k, 0.6 * k, 1.2 * k), "negro_h", CAPA_PEQUENO)
+
+
+def construir_arbol_seco(nombre, centro_x, base_y):
+    OBJETO_ACTUAL[0] = nombre
+    centro = (centro_x - 320, piso_y(base_y) + 8)
+    cono((centro[0], centro[1], 38), 11, 5, 76, "corteza", CAPA_MUEBLE, organico=1.2)
+    esfera((centro[0], centro[1], 2), (15, 12, 4), "corteza", CAPA_MUEBLE)
+    ramas = (
+        ((0, 55), (-24, 82), 4.2), ((-24, 82), (-40, 112), 2.8), ((-24, 82), (-14, 118), 2.4),
+        ((0, 62), (26, 92), 4.0), ((26, 92), (46, 108), 2.6), ((26, 92), (30, 126), 2.4),
+        ((0, 74), (4, 116), 3.0), ((-24, 82), (-52, 90), 2.0), ((26, 92), (52, 82), 2.0),
+    )
+    for (x1, z1), (x2, z2), grosor in ramas:
+        linea((centro[0] + x1, z1), (centro[0] + x2, z2), "corteza", grosor, centro[1] - 2, CAPA_MUEBLE)
+
+
+def construir_halloween():
+    construir_luces()
+    construir_telarana()
+    construir_murcielago()
+    construir_calabaza("pumpkin", 26, 420, 352)
+    construir_calabaza("pumpkin_m", 20, 548, 346)
+    construir_calabaza("pumpkin_s", 14, 575, 352, caras=False)
+    construir_lapida("gravestone_a", 100, 352)
+    construir_lapida("gravestone_b", 160, 352, cruz=True)
+    construir_caldero("cauldron", 250, 330)
+    construir_fantasma()
+    construir_arana_colgante()
+    construir_velas("candles", 455, 340)
+    construir_cuervo("crow", 200, 96)
+    construir_calavera("skull", 350, 330)
+    construir_arbol_seco("deadtree", 320, 230)
+
+
+def construir_sala(semilla: int = 7, halloween: bool = False):
     azar = random.Random(semilla)
     construir_pared()
     construir_piso(azar)
@@ -572,6 +784,8 @@ def construir_sala(semilla: int = 7):
     construir_plato_y_pelota()
     construir_estanteria(azar)
     construir_planta()
+    if halloween:
+        construir_halloween()
 
 
 def preparar_camara():
@@ -778,6 +992,28 @@ MUEBLES = {
 }
 
 
+# Adornos de Halloween: pieza -> (archivo, x del ancla, base). Los de pared no tienen base
+# fija: el recorte termina donde termina el dibujo y el juego los coloca a mano.
+HALLOWEEN = {
+    "pumpkin": ("pumpkin", 420, 352),
+    "pumpkin_m": ("pumpkin_m", 548, 346),
+    "pumpkin_s": ("pumpkin_s", 575, 352),
+    "gravestone_a": ("gravestone_a", 100, 352),
+    "gravestone_b": ("gravestone_b", 160, 352),
+    "bat": ("bat", 320, 0),
+    "web": ("web", 43, 0),
+    "lights": ("lights", 375, 0),
+    "cauldron": ("cauldron", 250, 330),
+    "ghost": ("ghost", 320, 0),
+    "spider": ("spider", 320, 0),
+    "candles": ("candles", 455, 340),
+    "crow": ("crow", 200, 96),
+    "skull": ("skull", 350, 330),
+    "deadtree": ("deadtree", 320, 230),
+}
+HALLOWEEN_EN_PARED = {"bat", "web", "lights"}
+
+
 def renderizar_imagen(carpeta: Path, luces: bool, lampara: bool = True) -> Image.Image:
     ids = renderizar(carpeta / "ids.png", "FLAT", "OBJECT", sombras=False)
     luz = renderizar(carpeta / "luz.png", "STUDIO", "SINGLE", sombras=True)[..., 0]
@@ -845,9 +1081,9 @@ def agregar_sombra(sprite: Image.Image, tipo: str) -> Image.Image:
     return lienzo
 
 
-def exportar_piezas(carpeta_piezas: Path, ruta_fondo: Path, temporal: Path):
+def exportar_piezas(carpeta_piezas: Path, ruta_fondo: Path, temporal: Path, carpeta_halloween: Path | None = None):
     escena = bpy.context.scene
-    muebles = [objeto for objeto, pieza in zip(OBJETOS_BLENDER, PIEZAS) if pieza.objeto in MUEBLES]
+    muebles = [objeto for objeto, pieza in zip(OBJETOS_BLENDER, PIEZAS) if pieza.objeto in MUEBLES or pieza.objeto in HALLOWEEN]
     for objeto in muebles:
         objeto.hide_render = True
     renderizar_imagen(temporal, luces=True, lampara=False).save(ruta_fondo)
@@ -866,24 +1102,41 @@ def exportar_piezas(carpeta_piezas: Path, ruta_fondo: Path, temporal: Path):
         print(f"{tipo}: {sprite.size}")
         for objeto in propios:
             objeto.hide_render = True
+    if carpeta_halloween:
+        exportar_halloween(carpeta_halloween, temporal)
+
+
+def exportar_halloween(carpeta: Path, temporal: Path):
+    carpeta.mkdir(parents=True, exist_ok=True)
+    for nombre, (archivo, ancla_x, base) in HALLOWEEN.items():
+        propios = [objeto for objeto, pieza in zip(OBJETOS_BLENDER, PIEZAS) if pieza.objeto == nombre]
+        for objeto in propios:
+            objeto.hide_render = False
+        recorte = recortar_en_ancla(renderizar_imagen(temporal, luces=False), ancla_x, base)
+        sprite = agregar_sombra(recorte, "clock" if nombre in HALLOWEEN_EN_PARED else "pumpkin")
+        sprite.save(carpeta / f"{archivo}.png")
+        print(f"halloween/{archivo}: {sprite.size}")
+        for objeto in propios:
+            objeto.hide_render = True
 
 
 def main() -> None:
     analizador = argparse.ArgumentParser(description=__doc__)
     analizador.add_argument("-o", "--salida", type=Path, required=True)
     analizador.add_argument("--piezas", type=Path, help="Carpeta donde guardar cada mueble como sprite")
+    analizador.add_argument("--halloween", type=Path, help="Carpeta donde guardar los adornos de Halloween (con --piezas)")
     argumentos = analizador.parse_args()
 
     bpy.ops.wm.read_factory_settings(use_empty=True)
     PIEZAS.clear()
     OBJETOS_BLENDER.clear()
-    construir_sala()
+    construir_sala(halloween=bool(argumentos.halloween))
     preparar_camara()
     argumentos.salida.parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as temporal:
         if argumentos.piezas:
-            exportar_piezas(argumentos.piezas, argumentos.salida, Path(temporal))
+            exportar_piezas(argumentos.piezas, argumentos.salida, Path(temporal), argumentos.halloween)
         else:
             imagen = renderizar_imagen(Path(temporal), luces=True)
             imagen.save(argumentos.salida)
