@@ -238,24 +238,15 @@ function Home({ userId }: { userId: string }) {
 
       <StatMeters stats={stats} />
 
-      {isHome && sleeping && (
-        <p className="door">
-          <PixelIcon name="house" size={20} />
-          Nailong duerme · despierta a las {WAKE_LABEL}
-        </p>
-      )}
-
-      {isHome && !sleeping && (
-        <p className="door door--open">
-          <PixelIcon name="door" size={20} />
-          La puerta está lista para enviarlo con {otherName ?? 'la otra persona'}
-        </p>
-      )}
-
-      {isHome && stay && (
-        <p className="door">
-          <PixelIcon name="house" size={20} />
-          Lleva {stay} en esta casa
+      {isHome && (
+        <p className={sleeping ? 'door' : 'door door--open'}>
+          <PixelIcon name={sleeping ? 'house' : 'door'} size={20} />
+          <span>
+            {sleeping
+              ? `Nailong duerme · despierta a las ${WAKE_LABEL}`
+              : `Puerta lista para enviarlo con ${otherName ?? 'la otra persona'}`}
+          </span>
+          {stay && <span className="door__stay">Lleva {stay} en esta casa</span>}
         </p>
       )}
 
