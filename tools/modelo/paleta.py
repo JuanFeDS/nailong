@@ -38,6 +38,8 @@ RAMPAS = {
     "rojo": ["#3d0a10", "#7a1420", "#b8202c", "#d8343a", "#e85048"],
     "dorado": ["#5c3a0a", "#a0700f", "#d8a528", "#f2cf5a", "#fbe7a0"],
     "cobija": ["#6a0e26", "#a91439", "#f14b4c", "#fa6454", "#fd8a72"],
+    "azul": ["#0b1a3d", "#14307a", "#1f4fb8", "#2f6fe0", "#5a96f5"],
+    "pollo": ["#9a6a0c", "#e0b020", "#ffe14d", "#fff08a", "#fff9c4"],
 }
 
 # Rasgos pequeños de la cara: ganan el píxel aunque cubran solo parte de él,
