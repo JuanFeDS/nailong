@@ -1,9 +1,11 @@
 """Exporta las hojas de sprites que usa el juego a partir del modelo 3D.
 
 Uso:
-    .venv/bin/python tools/modelo/exportar.py [hoja ...]
+    .venv/bin/python tools/modelo/exportar.py [hoja ...] [--disfraz nombre,...]
 
-Sin argumentos exporta todas las hojas; con nombres, solo esas.
+Sin argumentos exporta todas las hojas; con nombres, solo esas. Con
+--disfraz renderiza esas hojas con cada disfraz puesto y las deja en
+public/sprites/nailong/<disfraz>/, con los mismos nombres de hoja.
 
 Escribe cada hoja en public/sprites/nailong/ y un índice en
 src/lib/nailongSprites.json con el archivo, la cantidad de cuadros y cuánto
@@ -50,11 +52,41 @@ HOJAS = {
 ENCUADRES = {"sleep": (80, 48, 0.45, 0.8)}
 
 
+def exportar_disfraz(modelo, camara, material, disfraz, solo):
+    carpeta = CARPETA / disfraz
+    carpeta.mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory() as temporal:
+        for nombre, (animacion, vista, animo, cuadros, _, espejar) in HOJAS.items():
+            if nombre not in solo:
+                continue
+            encuadre = ENCUADRES.get(nombre)
+            argumentos = (encuadre,) if encuadre else ()
+            hoja = renderizar_hoja(modelo, camara, material, animacion, vista, animo, [disfraz], cuadros, Path(temporal), *argumentos)
+            if espejar:
+                lado = hoja.height
+                partes = [ImageOps.mirror(hoja.crop((i * lado, 0, (i + 1) * lado, lado))) for i in range(cuadros)]
+                hoja = Image.new("RGBA", hoja.size)
+                for i, parte in enumerate(partes):
+                    hoja.paste(parte, (i * lado, 0))
+            hoja.save(carpeta / f"{nombre}.png")
+            print(f"{disfraz}/{nombre}: {cuadros} cuadros")
+
+
 def main():
+    argumentos = sys.argv[1:]
+    disfraces = []
+    if "--disfraz" in argumentos:
+        posicion = argumentos.index("--disfraz")
+        disfraces = [nombre for nombre in argumentos[posicion + 1].split(",") if nombre]
+        del argumentos[posicion : posicion + 2]
     modelo = construir()
     camara, material = preparar_escena()
     CARPETA.mkdir(parents=True, exist_ok=True)
-    solo = set(sys.argv[1:]) or set(HOJAS)
+    solo = set(argumentos) or set(HOJAS)
+    for disfraz in disfraces:
+        exportar_disfraz(modelo, camara, material, disfraz, solo)
+    if disfraces:
+        return
     indice = json.loads(INDICE.read_text()) if INDICE.exists() else {}
     with tempfile.TemporaryDirectory() as temporal:
         for nombre, (animacion, vista, animo, cuadros, ms, espejar) in HOJAS.items():
