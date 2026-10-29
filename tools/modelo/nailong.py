@@ -37,8 +37,8 @@ class Modelo:
 
 # Disfraces que tapan la cabeza: con ellos las crestas se esconden, si no las
 # atravesarían. La sábana del fantasma tapa la cabeza entera, que se esconde.
-TAPAN_CRESTAS = {"calabaza", "fantasma", "murcielago"}
-TAPAN_CABEZA = {"fantasma"}
+TAPAN_CRESTAS = {"calabaza", "fantasma", "murcielago", "spiderman", "pollito"}
+TAPAN_CABEZA = {"fantasma", "spiderman"}
 
 
 # Cada material lleva un color plano único que el render usa como identificador.
@@ -76,6 +76,8 @@ MATERIALES = [
     "rojo",
     "dorado",
     "cobija",
+    "azul",
+    "pollo",
 ]
 
 HUESOS = {
@@ -699,6 +701,71 @@ def construir_vampiro(m) -> list[tuple[str, list[bpy.types.Object]]]:
     return [("cuerpo", [camisa, chaleco, *botones, *mono, espalda, cuello]), *costados.items()]
 
 
+def mangas_ajustadas(nombre, material, radios_brazo, radios_antebrazo):
+    """Una manga sobre cada brazo y antebrazo, por hueso."""
+    mangas = {}
+    for lado, sufijo in ((-1, "R"), (1, "L")):
+        hombro = Vector((BRAZO[0][0][0] * lado, BRAZO[0][0][1], BRAZO[0][0][2]))
+        codo = Vector((CODO.x * lado, CODO.y, CODO.z))
+        mano = Vector((MANO.x * lado, MANO.y, MANO.z))
+        mangas[f"brazo.{sufijo}"] = [orientado(f"{nombre}_manga_{sufijo}", (hombro + codo) / 2 + Vector((0, 0, -0.03)), radios_brazo, codo - hombro, material)]
+        mangas[f"antebrazo.{sufijo}"] = [orientado(f"{nombre}_puno_{sufijo}", codo + (mano - codo) * 0.4 + Vector((0, 0, -0.03)), radios_antebrazo, mano - codo, material)]
+    return mangas
+
+
+def construir_spiderman(m) -> list[tuple[str, list[bpy.types.Object]]]:
+    """Traje rojo y azul con la máscara completa, ojos blancos grandes y telaraña.
+
+    La máscara esconde la cabeza de Nailong (ver TAPAN_CABEZA), así que los ojos
+    son lentes blancos pegados a la tela.
+    """
+    torso = funda("spiderman_torso", list(np.linspace(0.5, 0.99, 14)), lambda z: holgado(PERFIL, z, 0.03), m["rojo"])
+    cadera = funda("spiderman_cadera", list(np.linspace(0.29, 0.52, 8)), lambda z: holgado(PERFIL, z, 0.025), m["azul"])
+    telarana = [
+        funda(f"spiderman_tela_{i}", [z - 0.012, z, z + 0.012], lambda zz: holgado(PERFIL, zz, 0.036), m["negro"])
+        for i, z in enumerate((0.6, 0.72, 0.84))
+    ]
+    punto, normal = superficie(torso, (0, -2, 0.78), (0, 1, 0))
+    araña = [
+        orientado("spiderman_arana", punto + normal * 0.01, (0.075, 0.09, 0.02), normal, m["negro"]),
+        *(
+            barra(f"spiderman_pata_{lado}_{i}", punto + Vector((0.02 * lado, -0.03, 0.02 * (1 - i))),
+                  punto + Vector((0.13 * lado, -0.05, 0.06 * (1 - i) + 0.02 * i)), 0.012, m["negro"])
+            for lado in (-1, 1) for i in range(3)
+        ),
+    ]
+    mascara = capucha("spiderman_mascara", m["rojo"], 0.95, cara=False)
+    lentes = []
+    for lado in (-1, 1):
+        punto, normal = superficie(mascara, (0.22 * lado, -2, 1.3), (0, 1, 0))
+        lentes.append(orientado(f"spiderman_lente_{lado}", punto + normal * 0.005, (0.16, 0.1, 0.03), normal, m["sabana"], -22 * lado))
+    mangas = mangas_ajustadas("spiderman", m["rojo"], (0.23, 0.21, 0.25), (0.2, 0.21, 0.2))
+    piernas = {}
+    for lado, sufijo in ((-1, "R"), (1, "L")):
+        piernas[f"pierna.{sufijo}"] = [
+            elipsoide(f"spiderman_pierna_{sufijo}_{i}", (centro[0] * lado, centro[1], centro[2]), tuple(r * 1.13 for r in radios), m["azul"])
+            for i, (centro, radios, _) in enumerate(PIERNA)
+        ]
+    return [("cuerpo", [torso, cadera, *telarana, *araña]), ("cabeza", [mascara, *lentes]), *mangas.items(), *piernas.items()]
+
+
+def construir_pollito(m) -> list[tuple[str, list[bpy.types.Object]]]:
+    """Mameluco de pollito: plumón amarillo claro, capucha con pico y mechón, alitas y patas naranjas."""
+    cuerpo = funda("pollito_cuerpo", list(np.linspace(0.29, 0.99, 20)), lambda z: holgado(PERFIL, z, 0.045), m["pollo"])
+    capucha_pollo = capucha("pollito_capucha", m["pollo"], 0.95)
+    pico = cono("pollito_pico", (0, -0.58, 1.165), (0, -0.8, 1.14), 0.11, 0.03, m["calabaza"], 0.65)
+    mechon = [
+        cono(f"pollito_mechon_{i}", (0.05 * i, -0.02 + 0.03 * abs(i), 1.64), (0.1 * i, 0.0 + 0.03 * abs(i), 1.9 - 0.06 * abs(i)), 0.045, 0.01, m["pollo"])
+        for i in (-1, 0, 1)
+    ]
+    alas = mangas_ajustadas("pollito", m["pollo"], (0.24, 0.22, 0.26), (0.21, 0.22, 0.21))
+    patas = {}
+    for lado, sufijo in ((-1, "R"), (1, "L")):
+        centro, radios, _ = PIERNA[2]
+        patas[f"pierna.{sufijo}"] = [elipsoide(f"pollito_pata_{sufijo}", (centro[0] * lado, centro[1] - 0.03, centro[2]), (radios[0] * 1.08, radios[1] * 1.12, radios[2] * 1.15), m["calabaza"])]
+    return [("cuerpo", [cuerpo]), ("cabeza", [capucha_pollo, pico, *mechon]), *alas.items(), *patas.items()]
+
+
 def construir_disfraces(m) -> dict[str, list[tuple[str, list[bpy.types.Object]]]]:
     """Mamelucos de Halloween de cuerpo entero: cada uno es una lista de (hueso, piezas).
 
@@ -807,6 +874,8 @@ def construir_disfraces(m) -> dict[str, list[tuple[str, list[bpy.types.Object]]]
         "bruja": [("cuerpo", [tunica, cinturon]), ("cabeza", sombrero)],
         "murcielago": [("cuerpo", [traje_negro, *alas]), ("cabeza", [capucha_negra, *orejas])],
         "vampiro": construir_vampiro(m),
+        "spiderman": construir_spiderman(m),
+        "pollito": construir_pollito(m),
     }
 
 
