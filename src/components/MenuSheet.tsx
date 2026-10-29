@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { useEconomy } from '../hooks/useEconomy'
 import type { useGarden } from '../hooks/useGarden'
 import { asset } from '../lib/asset'
+import { COSTUMES } from '../lib/costumes'
 import { FLOORS, type HouseStyle, WALLS } from '../lib/house'
 import { MissionsView } from './MissionsView'
 import { NotificationToggle } from './NotificationToggle'
@@ -19,26 +20,29 @@ interface Props {
   onBuy: (kind: string) => void
   style: HouseStyle
   onStyle: (style: HouseStyle) => void
+  costume: string | null
+  onCostume: (id: string | null) => void
   notice: string | null
   onNotice: (text: string) => void
   onTinker: () => void
   onSignOut: () => void
   onClose: () => void
-  initialView?: 'main' | 'style' | 'missions' | 'shop' | 'pantry'
+  initialView?: 'main' | 'style' | 'costume' | 'missions' | 'shop' | 'pantry'
 }
 
 const TITLES = {
   main: 'Menú',
   style: 'Paredes y suelo',
+  costume: 'Disfraces',
   missions: 'Misiones',
   shop: 'Tienda',
   pantry: 'Despensa',
 }
 
-export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, style, onStyle, notice, onNotice, onTinker, onSignOut, onClose, initialView = 'main' }: Props) {
+export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, style, onStyle, costume, onCostume, notice, onNotice, onTinker, onSignOut, onClose, initialView = 'main' }: Props) {
   const lockedPlot = garden.plots.find((plot) => !plot.unlocked)
   const nextPlot = lockedPlot ? { slot: lockedPlot.slot, price: lockedPlot.unlock_price } : null
-  const [view, setView] = useState<'main' | 'style' | 'missions' | 'shop' | 'pantry'>(initialView)
+  const [view, setView] = useState<'main' | 'style' | 'costume' | 'missions' | 'shop' | 'pantry'>(initialView)
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose()
@@ -116,6 +120,29 @@ export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, s
               </div>
             </section>
           </>
+        )}
+
+        {view === 'costume' && (
+          <section className="menu__section">
+            <button className="menu__row" onClick={() => onCostume(null)} aria-pressed={costume === null}>
+              <span>{costume === null ? '✓ ' : ''}Sin disfraz</span>
+            </button>
+            {COSTUMES.map((option) => (
+              <button key={option.id} className="menu__row" onClick={() => onCostume(option.id)} aria-pressed={costume === option.id}>
+                <span>{costume === option.id ? '✓ ' : ''}{option.label}</span>
+              </button>
+            ))}
+          </section>
+        )}
+
+        {view === 'main' && (
+          <section className="menu__section">
+            <h3 className="menu__heading">Nailong</h3>
+            <button className="menu__row" onClick={() => setView('costume')}>
+              <PixelIcon name="house" size={20} />
+              <span>Disfraces</span>
+            </button>
+          </section>
         )}
 
         {view === 'main' && canTinker && (

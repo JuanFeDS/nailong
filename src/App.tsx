@@ -17,6 +17,7 @@ import { useHouse } from './hooks/useHouse'
 import { useWeatherCode } from './hooks/useWeather'
 import { ITEM_LABELS } from './lib/house'
 import { isSleepTime, WAKE_LABEL } from './lib/sleep'
+import { loadCostume, saveCostume } from './lib/costumes'
 import { formatDuration } from './lib/time'
 import { playSfx } from './lib/sound'
 import { supabase } from './lib/supabase'
@@ -53,6 +54,11 @@ function Home({ userId }: { userId: string }) {
   const isAsleep = () => isSleepTime(new Date())
   const [tinkering, setTinkering] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [costume, setCostume] = useState(loadCostume)
+  const wear = (id: string | null) => {
+    setCostume(id)
+    saveCostume(id)
+  }
 
   const place = PLACES[(myName ?? '').toLowerCase()]
   const weatherCode = useWeatherCode(place)
@@ -150,6 +156,8 @@ function Home({ userId }: { userId: string }) {
           onBuy={buy}
           style={style}
           onStyle={changeStyle}
+          costume={costume}
+          onCostume={wear}
           notice={notice}
           onNotice={showNotice}
           onTinker={() => {
@@ -164,6 +172,7 @@ function Home({ userId }: { userId: string }) {
       {phase === 'home' && (
         <Room
           sala3d={SALA_3D}
+          costume={costume}
           items={items.filter((item) => item.place === location)}
           plots={garden.plots}
           waterTrigger={waterTrigger}

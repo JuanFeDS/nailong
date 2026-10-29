@@ -102,6 +102,7 @@ interface Placement {
 
 interface Props {
   sala3d?: boolean
+  costume?: string | null
   items: HouseItem[]
   waterTrigger: { id: number; slot: number } | null
   onWaterDone: (slot: number) => void
@@ -151,11 +152,11 @@ function moodOf(stats: Stats): 'weak' | 'sad' | 'hungry' | 'sleepy' | 'happy' | 
 }
 
 export function Room({
-  sala3d = false, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend,
+  sala3d = false, costume = null, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const latest = useRef({ sala3d, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
-  latest.current = { sala3d, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
+  const latest = useRef({ sala3d, costume, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend })
+  latest.current = { sala3d, costume, items, waterTrigger, onWaterDone, plots, onPlotTap, onFeedRequest, feedTrigger, place, onTravel, style, editing, onMoveItem, stats, canSend, windowName, sleeping, onBlockedTap, onAction, onSend }
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -562,14 +563,37 @@ export function Room({
           }),
         ) as Record<SheetName, HTMLImageElement>)
       : null
-    const sleepSheet = sheets ? sheets.sleep : sleepSprite
     const sleepFrames = sheets ? nailongSprites.sleep.frames : SLEEP_FRAMES
     const ready = (image: HTMLImageElement) => image.complete && image.naturalWidth > 0
+
+    // El disfraz se carga la primera vez que se usa; mientras no llega, cada hoja cae a la de siempre.
+    const costumeSheets = new Map<string, Record<SheetName, HTMLImageElement>>()
+    const worn = (): Record<SheetName, HTMLImageElement> | null => {
+      if (!sheets) return null
+      const costume = latest.current.costume
+      if (!costume) return sheets
+      let own = costumeSheets.get(costume)
+      if (!own) {
+        own = Object.fromEntries(
+          (Object.keys(nailongSprites) as SheetName[]).map((name) => {
+            const image = new Image()
+            image.src = asset(`sprites/nailong/${costume}/${name}.png`)
+            return [name, image]
+          }),
+        ) as Record<SheetName, HTMLImageElement>
+        costumeSheets.set(costume, own)
+      }
+      const mixed = {} as Record<SheetName, HTMLImageElement>
+      for (const name of Object.keys(nailongSprites) as SheetName[]) mixed[name] = ready(own[name]) ? own[name] : sheets[name]
+      return mixed
+    }
+    const sleepSheetNow = () => (sheets ? worn()!.sleep : sleepSprite)
 
     // Los renders del modelo 3D dejan unos píxeles vacíos bajo los pies; se mide cuántos
     // para apoyar el punto más bajo de cada hoja justo en el suelo.
     const footPads = new Map<string, number>()
-    const footPadOf = (key: string, image: HTMLImageElement) => {
+    const footPadOf = (_name: string, image: HTMLImageElement) => {
+      const key = image.src
       const cached = footPads.get(key)
       if (cached !== undefined) return cached
       const probe = document.createElement('canvas')
@@ -680,13 +704,13 @@ export function Room({
     }
 
     const isSleepingOnBed = (time: number) =>
-      sleepSheet.complete &&
-      sleepSheet.naturalWidth > 0 &&
+      ready(sleepSheetNow()) &&
       (latest.current.sleeping || (time < walker.busyUntil && walker.busyTask === 'sleep'))
 
     const drawSleeper = (time: number) => {
       const bed = placements().find((item) => item.name === 'bed')
       if (!bed) return
+      const sleepSheet = sleepSheetNow()
       const frameWidth = sleepSheet.naturalWidth / sleepFrames
       const progress = latest.current.sleeping
         ? (time % NIGHT_LOOP_MS) / NIGHT_LOOP_MS
@@ -790,7 +814,7 @@ export function Room({
           ? { depth: bed.baseY + 1, draw: () => drawSleeper(time) }
           : swingingNow(time)
             ? { depth: -2, draw: () => undefined }
-            : { depth: walker.y, draw: () => (sheets ? drawNailong3d(time, sheets) : drawNailong(time)) },
+            : { depth: walker.y, draw: () => (sheets ? drawNailong3d(time, worn()!) : drawNailong(time)) },
       ].sort((first, second) => first.depth - second.depth)
       drawables.forEach((drawable) => drawable.draw())
       context.restore()

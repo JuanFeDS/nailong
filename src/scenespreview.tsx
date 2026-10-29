@@ -24,6 +24,8 @@ function TopbarPreview() {
         <MenuSheet
           userId="prueba"
           canTinker
+          costume={null}
+          onCostume={() => undefined}
           initialView={mode === 'shop' ? 'shop' : mode === 'missions' ? 'missions' : mode === 'pantry' ? 'pantry' : 'main'}
           economy={{
             wallet: { coins: 85, earned_today: 25, feeds: 1, plays: 1, claimed: ['play'] },
