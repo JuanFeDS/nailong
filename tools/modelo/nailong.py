@@ -701,8 +701,8 @@ def construir_vampiro(m) -> list[tuple[str, list[bpy.types.Object]]]:
     return [("cuerpo", [camisa, chaleco, *botones, *mono, espalda, cuello]), *costados.items()]
 
 
-def mangas_ajustadas(nombre, material, radios_brazo, radios_antebrazo):
-    """Una manga sobre cada brazo y antebrazo, por hueso."""
+def mangas_ajustadas(nombre, material, radios_brazo, radios_antebrazo, guante=0.0, lineas=None):
+    """Una manga sobre cada brazo y antebrazo, por hueso; con guante, también tapa la mano y sus garras."""
     mangas = {}
     for lado, sufijo in ((-1, "R"), (1, "L")):
         hombro = Vector((BRAZO[0][0][0] * lado, BRAZO[0][0][1], BRAZO[0][0][2]))
@@ -710,27 +710,61 @@ def mangas_ajustadas(nombre, material, radios_brazo, radios_antebrazo):
         mano = Vector((MANO.x * lado, MANO.y, MANO.z))
         mangas[f"brazo.{sufijo}"] = [orientado(f"{nombre}_manga_{sufijo}", (hombro + codo) / 2 + Vector((0, 0, -0.03)), radios_brazo, codo - hombro, material)]
         mangas[f"antebrazo.{sufijo}"] = [orientado(f"{nombre}_puno_{sufijo}", codo + (mano - codo) * 0.4 + Vector((0, 0, -0.03)), radios_antebrazo, mano - codo, material)]
+        if lineas:
+            # Aros de telaraña: discos negros apenas más anchos que la manga a esa altura.
+            for hueso, centro, eje, radios, cortes in (
+                (f"brazo.{sufijo}", (hombro + codo) / 2 + Vector((0, 0, -0.03)), codo - hombro, radios_brazo, (-0.5, 0.1)),
+                (f"antebrazo.{sufijo}", codo + (mano - codo) * 0.4 + Vector((0, 0, -0.03)), mano - codo, radios_antebrazo, (-0.35,)),
+            ):
+                for corte in cortes:
+                    reduccion = sqrt(1 - corte ** 2)
+                    mangas[hueso].append(orientado(
+                        f"{nombre}_aro_{hueso}_{corte}", centro + eje.normalized() * corte * radios[2],
+                        (radios[0] * reduccion + 0.04, radios[1] * reduccion + 0.04, 0.03), eje, lineas,
+                    ))
+        if guante:
+            mangas[f"antebrazo.{sufijo}"].append(elipsoide(f"{nombre}_guante_{sufijo}", mano + Vector((0, 0, -0.03)), (guante,) * 3, material))
     return mangas
 
 
-def construir_spiderman(m) -> list[tuple[str, list[bpy.types.Object]]]:
-    """Traje rojo y azul con la máscara completa, ojos blancos grandes y telaraña.
+def trazar(objeto, nombre, puntos_xz, material, grosor=0.022):
+    """Una línea pegada al frente de un objeto que pasa por esos puntos (x, z); salta los que no lo tocan."""
+    puntos = []
+    for x, z in puntos_xz:
+        acierto, punto, normal, _ = objeto.ray_cast(Vector((x, -2, z)), Vector((0, 1, 0)))
+        if acierto:
+            puntos.append(punto + normal * 0.012)
+    return [barra(f"{nombre}_{i}", a, b, grosor, material) for i, (a, b) in enumerate(zip(puntos, puntos[1:]))]
 
-    La máscara esconde la cabeza de Nailong (ver TAPAN_CABEZA), así que los ojos
-    son lentes blancos pegados a la tela.
+
+def construir_spiderman(m) -> list[tuple[str, list[bpy.types.Object]]]:
+    """Traje rojo y azul con la máscara completa, lentes blancos de borde negro y telaraña.
+
+    El torso lleva paneles azules en los costados, el emblema de la araña y la
+    telaraña saliendo de él; la cadera y las piernas son azules. La máscara
+    esconde la cabeza de Nailong (ver TAPAN_CABEZA), así que los ojos son lentes
+    pegados a la tela.
     """
     torso = funda("spiderman_torso", list(np.linspace(0.5, 0.99, 14)), lambda z: holgado(PERFIL, z, 0.03), m["rojo"])
     cadera = funda("spiderman_cadera", list(np.linspace(0.29, 0.52, 8)), lambda z: holgado(PERFIL, z, 0.025), m["azul"])
+    cinturon = funda("spiderman_cinturon", [0.5, 0.52, 0.54], lambda z: holgado(PERFIL, z, 0.04), m["negro"])
+    paneles = []
+    for lado in (-1, 1):
+        punto, normal = superficie(torso, (2 * lado, 0.0, 0.77), (-lado, 0, 0))
+        paneles.append(orientado(f"spiderman_panel_{lado}", punto + normal * 0.006, (0.24, 0.26, 0.03), normal, m["azul"]))
     telarana = [
         funda(f"spiderman_tela_{i}", [z - 0.012, z, z + 0.012], lambda zz: holgado(PERFIL, zz, 0.036), m["negro"])
-        for i, z in enumerate((0.6, 0.72, 0.84))
+        for i, z in enumerate((0.6, 0.69))
     ]
+    for lado in (-1, 1):
+        for x in (0.15, 0.29):
+            telarana += trazar(torso, f"spiderman_hilo_{lado}_{x}", [(x * lado * (1 + 0.15 * k), 0.52 + 0.08 * k) for k in range(6)], m["negro"])
     punto, normal = superficie(torso, (0, -2, 0.78), (0, 1, 0))
     araña = [
-        orientado("spiderman_arana", punto + normal * 0.01, (0.075, 0.09, 0.02), normal, m["negro"]),
+        orientado("spiderman_arana", punto + normal * 0.012, (0.06, 0.075, 0.02), normal, m["negro"]),
         *(
             barra(f"spiderman_pata_{lado}_{i}", punto + Vector((0.02 * lado, -0.03, 0.02 * (1 - i))),
-                  punto + Vector((0.13 * lado, -0.05, 0.06 * (1 - i) + 0.02 * i)), 0.012, m["negro"])
+                  punto + Vector((0.13 * lado, -0.05, 0.08 * (1 - i) + 0.03 * i)), 0.011, m["negro"])
             for lado in (-1, 1) for i in range(3)
         ),
     ]
@@ -738,15 +772,27 @@ def construir_spiderman(m) -> list[tuple[str, list[bpy.types.Object]]]:
     lentes = []
     for lado in (-1, 1):
         punto, normal = superficie(mascara, (0.22 * lado, -2, 1.3), (0, 1, 0))
-        lentes.append(orientado(f"spiderman_lente_{lado}", punto + normal * 0.005, (0.16, 0.1, 0.03), normal, m["sabana"], -22 * lado))
-    mangas = mangas_ajustadas("spiderman", m["rojo"], (0.23, 0.21, 0.25), (0.2, 0.21, 0.2))
+        borde = orientado(f"spiderman_borde_{lado}", punto + normal * 0.012, (0.19, 0.125, 0.03), normal, m["negro"], 24 * lado)
+        lente = orientado(f"spiderman_lente_{lado}", punto + normal * 0.03, (0.155, 0.09, 0.03), normal, m["sabana"], 24 * lado)
+        lentes += [borde, lente]
+    # Telaraña como en el traje real: rayos y arcos que salen del punto entre los ojos.
+    centro_z, hilos = 1.3, []
+    for grados in (90, 55, 125, -90, -55, -125):
+        hilos += trazar(mascara, f"spiderman_rayo_{grados}", [
+            (radio * cos(radians(grados)) * 0.85, centro_z + radio * sin(radians(grados))) for radio in np.linspace(0.1, 0.6, 5)
+        ], m["negro"])
+    for inicio, fin_arco in ((30, 150), (210, 330)):
+        hilos += trazar(mascara, f"spiderman_arco_{inicio}", [
+            (0.42 * cos(radians(g)) * 0.85, centro_z + 0.42 * sin(radians(g))) for g in np.linspace(inicio, fin_arco, 6)
+        ], m["negro"])
+    mangas = mangas_ajustadas("spiderman", m["rojo"], (0.2, 0.19, 0.31), (0.18, 0.18, 0.25), guante=0.2, lineas=m["negro"])
     piernas = {}
     for lado, sufijo in ((-1, "R"), (1, "L")):
         piernas[f"pierna.{sufijo}"] = [
             elipsoide(f"spiderman_pierna_{sufijo}_{i}", (centro[0] * lado, centro[1], centro[2]), tuple(r * 1.13 for r in radios), m["azul"])
             for i, (centro, radios, _) in enumerate(PIERNA)
         ]
-    return [("cuerpo", [torso, cadera, *telarana, *araña]), ("cabeza", [mascara, *lentes]), *mangas.items(), *piernas.items()]
+    return [("cuerpo", [torso, cadera, cinturon, *paneles, *telarana, *araña]), ("cabeza", [mascara, *lentes, *hilos]), *mangas.items(), *piernas.items()]
 
 
 def construir_pollito(m) -> list[tuple[str, list[bpy.types.Object]]]:
