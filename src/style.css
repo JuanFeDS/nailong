@@ -297,7 +297,6 @@ button {
 .welcome {
   width: 100%;
   max-width: 440px;
-  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -397,7 +396,6 @@ button {
 .home {
   width: 100%;
   max-width: 960px;
-  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -651,7 +649,6 @@ button {
 }
 
 .loading {
-  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
