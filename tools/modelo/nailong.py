@@ -37,8 +37,8 @@ class Modelo:
 
 # Disfraces que tapan la cabeza: con ellos las crestas se esconden, si no las
 # atravesarían. La sábana del fantasma tapa la cabeza entera, que se esconde.
-TAPAN_CRESTAS = {"calabaza", "fantasma", "murcielago", "spiderman", "pollito"}
-TAPAN_CABEZA = {"fantasma", "spiderman"}
+TAPAN_CRESTAS = {"calabaza", "fantasma", "fantasma_corto", "murcielago", "spiderman", "pollito"}
+TAPAN_CABEZA = {"fantasma", "fantasma_corto", "spiderman"}
 
 
 # Cada material lleva un color plano único que el render usa como identificador.
@@ -866,6 +866,13 @@ def construir_disfraces(m) -> dict[str, list[tuple[str, list[bpy.types.Object]]]
     for lado in (-1, 1):
         punto, normal = superficie(sabana, (0.19 * lado, -2, 1.32), (0, 1, 0))
         ojos_sabana.append(orientado(f"sabana_ojo_{lado}", punto, (0.095, 0.135, 0.02), normal, m["negro"], 12 * lado))
+    # Para dormir: solo la cúpula sobre la cabeza, para que el borde de la campana
+    # no asome por encima de la cobija cuando Nailong está acostado.
+    sabana_corta = funda("sabana_corta", list(np.linspace(1.0, tope_sabana, 26)), medida_sabana, m["sabana"])
+    ojos_corta = []
+    for lado in (-1, 1):
+        punto, normal = superficie(sabana_corta, (0.19 * lado, -2, 1.32), (0, 1, 0))
+        ojos_corta.append(orientado(f"sabana_corta_ojo_{lado}", punto, (0.095, 0.135, 0.02), normal, m["negro"], 12 * lado))
     # Mangas: la tela cae sobre cada brazo y deja ver solo la mano.
     mangas = {}
     for lado, sufijo in ((-1, "R"), (1, "L")):
@@ -917,6 +924,7 @@ def construir_disfraces(m) -> dict[str, list[tuple[str, list[bpy.types.Object]]]
     return {
         "calabaza": [("cuerpo", [traje, *cara_calabaza]), ("cabeza", calabaza_gorro)],
         "fantasma": [("cuerpo", [sabana, *ojos_sabana]), *mangas.items()],
+        "fantasma_corto": [("cuerpo", [sabana_corta, *ojos_corta])],
         "bruja": [("cuerpo", [tunica, cinturon]), ("cabeza", sombrero)],
         "murcielago": [("cuerpo", [traje_negro, *alas]), ("cabeza", [capucha_negra, *orejas])],
         "vampiro": construir_vampiro(m),

@@ -61,7 +61,8 @@ def exportar_disfraz(modelo, camara, material, disfraz, solo):
                 continue
             encuadre = ENCUADRES.get(nombre)
             argumentos = (encuadre,) if encuadre else ()
-            hoja = renderizar_hoja(modelo, camara, material, animacion, vista, animo, [disfraz], cuadros, Path(temporal), *argumentos)
+            prendas = ["fantasma_corto"] if disfraz == "fantasma" and animacion == "acostado" else [disfraz]
+            hoja = renderizar_hoja(modelo, camara, material, animacion, vista, animo, prendas, cuadros, Path(temporal), *argumentos)
             if espejar:
                 lado = hoja.height
                 partes = [ImageOps.mirror(hoja.crop((i * lado, 0, (i + 1) * lado, lado))) for i in range(cuadros)]
