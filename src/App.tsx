@@ -140,7 +140,7 @@ function Home({ userId }: { userId: string }) {
   if (minigames) {
     return (
       <main className="home">
-        <Minigames costume={costume} onExit={() => setMinigames(false)} />
+        <Minigames costume={costume} onReward={economy.refresh} onExit={() => setMinigames(false)} />
       </main>
     )
   }

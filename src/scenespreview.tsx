@@ -81,7 +81,7 @@ function TopbarPreview() {
 createRoot(document.getElementById('root')!).render(
   <main className="home">
     {mode === 'incoming' && <IncomingScene from="gabi" />}
-    {mode === 'minigames' && <Minigames costume={new URLSearchParams(location.search).get('costume')} onExit={() => console.log('volver')} />}
+    {mode === 'minigames' && <Minigames onReward={() => {}} costume={new URLSearchParams(location.search).get('costume')} onExit={() => console.log('volver')} />}
     {mode === 'knocking' && (
       <>
         <KnockingScene />
