@@ -8,9 +8,9 @@ interface Props {
   onClaim: (mission: MissionId) => void
 }
 
-const REWARD = 15
-const BONUS = 20
-const DAILY_CAP = 40
+const REWARD = 10
+const BONUS = 10
+const DAILY_CAP = 30
 
 export function MissionsView({ wallet, careOk, error, onClaim }: Props) {
   const missions: { id: MissionId; label: string; progress: number; target: number }[] = [
