@@ -1,5 +1,7 @@
 export type SoundMode = 'all' | 'fx' | 'off'
-export type Sfx = 'feed' | 'play' | 'sleep' | 'send' | 'knock' | 'arrive' | 'welcome'
+export type Sfx =
+  | 'feed' | 'play' | 'sleep' | 'send' | 'knock' | 'arrive' | 'welcome'
+  | 'hit' | 'bonus' | 'miss' | 'combo' | 'levelup'
 
 const STORAGE_KEY = 'nailong:sound'
 const SFX_VOLUME = 0.22
@@ -171,5 +173,28 @@ export function playSfx(name: Sfx) {
     case 'welcome':
       ;[NOTE.C5, NOTE.G5, NOTE.C6, NOTE.E6].forEach((freq, index) => play(freq, index * 0.1, 0.18, 'square'))
       break
+    case 'hit':
+      play(NOTE.G5, 0, 0.08, 'square', NOTE.C6)
+      break
+    case 'bonus':
+      play(NOTE.C6, 0, 0.07, 'square')
+      play(NOTE.G6, 0.07, 0.12, 'square')
+      break
+    case 'miss':
+      play(200, 0, 0.25, 'sawtooth', 80)
+      break
+    case 'combo':
+      ;[NOTE.E6, NOTE.G6].forEach((freq, index) => play(freq, index * 0.06, 0.1, 'triangle'))
+      break
+    case 'levelup':
+      ;[NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6, NOTE.E6, NOTE.G6].forEach((freq, index) => play(freq, index * 0.09, 0.2, 'square'))
+      break
   }
+}
+
+const PUMPKIN_NOTES = [NOTE.C5, NOTE.E5, NOTE.G5, NOTE.C6]
+
+export function playPumpkinNote(index: number) {
+  if (!audio || mode === 'off') return
+  tone(PUMPKIN_NOTES[index], audio.currentTime, 0.3, 'triangle', 1, sfxBus)
 }
