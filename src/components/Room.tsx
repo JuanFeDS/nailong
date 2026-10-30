@@ -8,11 +8,14 @@ import {
   type HouseItem,
   type HouseStyle,
   ITEM_DEFS,
+  isPlace,
   ITEM_KINDS,
   PLACE_WIDTH,
   type ItemKind,
   type Place,
+  type RoomName,
   ROOM_HEIGHT as HEIGHT,
+  ROOM_STYLES,
   ROOM_WIDTH as WIDTH,
   type Task,
   WALL_HEIGHT,
@@ -57,7 +60,8 @@ const MINIGAME_TAP_MARGIN = 10
 const SPRITE_SIZE = 128
 
 const ACTION_DURATION: Record<Task, number> = {
-  feed: 1800, play: 1800, sleep: 5000, send: 1800, patio: 700, room: 700, water: 2200, swing: 4800, soccer: 4400,
+  feed: 1800, play: 1800, sleep: 5000, send: 1800, water: 2200, swing: 4800, soccer: 4400, minigames: 300,
+  room: 700, patio: 700, bedroom: 700, kitchen: 700, bathroom: 700, playroom: 700,
 }
 const SOCCER_URL = asset('sprites/processed/soccer.png')
 const KICK_PROGRESS = 0.52
@@ -444,7 +448,8 @@ export function Room({
         walker.busyTask = null
         if (finished === 'send') latest.current.onSend()
         else if (finished === 'water') latest.current.onWaterDone(walker.plotSlot)
-        else if (finished === 'patio' || finished === 'room') latest.current.onTravel(finished)
+        else if (isPlace(finished)) latest.current.onTravel(finished)
+        else if (finished === 'minigames') latest.current.onMinigames?.()
         else latest.current.onAction(finished)
       }
 
@@ -851,10 +856,12 @@ export function Room({
       context.clearRect(0, 0, viewWidth, HEIGHT)
       context.save()
       context.translate(-Math.round(cameraX), 0)
-      const wallImage = wallImages[latest.current.style.wall]
-      const floorImage = floorImages[latest.current.style.floor]
-      const inPatio = latest.current.place === 'patio'
-      if (latest.current.sala3d && !inPatio) {
+      const currentPlace = latest.current.place
+      const placeStyle = currentPlace === 'room' || currentPlace === 'patio' ? latest.current.style : ROOM_STYLES[currentPlace]
+      const wallImage = wallImages[placeStyle.wall]
+      const floorImage = floorImages[placeStyle.floor]
+      const inPatio = currentPlace === 'patio'
+      if (latest.current.sala3d && currentPlace === 'room') {
         if (backdropImage.complete && backdropImage.naturalWidth > 0) context.drawImage(backdropImage, 0, 0, WIDTH, HEIGHT)
       } else if (inPatio) {
         if (latest.current.halloween && !patioNightImage.src) patioNightImage.src = PATIO_NIGHT_URL
@@ -869,7 +876,7 @@ export function Room({
         }
       }
       const windowSprite = windows[latest.current.windowName]
-      if (!inPatio && !latest.current.sala3d && windowSprite.complete && windowSprite.naturalWidth > 0) {
+      if (!inPatio && !(latest.current.sala3d && currentPlace === 'room') && windowSprite.complete && windowSprite.naturalWidth > 0) {
         context.drawImage(
           windowSprite,
           WINDOW_POSITION.x, WINDOW_POSITION.y,
@@ -956,10 +963,13 @@ export function Room({
     }
 
     let currentPlace = latest.current.place
+    let previousPlace = currentPlace
     let lastFeedTrigger = latest.current.feedTrigger
     let lastWaterId = latest.current.waterTrigger?.id ?? 0
     const arriveAtDoor = () => {
-      const door = placements().find((item) => item.name === (currentPlace === 'patio' ? 'gate' : 'backdoor'))
+      const entrance: ItemKind =
+        currentPlace === 'patio' ? 'gate' : currentPlace !== 'room' ? 'exitdoor' : previousPlace === 'patio' ? 'backdoor' : `door_${previousPlace as RoomName}`
+      const door = placements().find((item) => item.name === entrance)
       walker.x = door?.spot?.x ?? 320
       walker.y = door?.spot?.y ?? horizon() + 60
       walker.target = null
@@ -971,6 +981,7 @@ export function Room({
 
     const loop = (time: number) => {
       if (latest.current.place !== currentPlace) {
+        previousPlace = currentPlace
         currentPlace = latest.current.place
         applyView()
         arriveAtDoor()

@@ -4,7 +4,7 @@ import type { useGarden } from '../hooks/useGarden'
 import { asset } from '../lib/asset'
 import { COSTUMES } from '../lib/costumes'
 import { isHalloweenSeason } from '../lib/halloween'
-import { FLOORS, type HouseStyle, WALLS } from '../lib/house'
+import { FLOORS, type HouseStyle, type RoomName, WALLS } from '../lib/house'
 import { MissionsView } from './MissionsView'
 import { NotificationToggle } from './NotificationToggle'
 import { PantryView } from './PantryView'
@@ -19,6 +19,7 @@ interface Props {
   garden: ReturnType<typeof useGarden>
   careOk: boolean
   onBuy: (kind: string) => void
+  onBuyRoom: (room: RoomName) => void
   style: HouseStyle
   onStyle: (style: HouseStyle) => void
   costume: string | null
@@ -42,7 +43,7 @@ const TITLES = {
   pantry: 'Despensa',
 }
 
-export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, style, onStyle, costume, onCostume, halloween, onHalloween, notice, onNotice, onTinker, onSignOut, onClose, initialView = 'main' }: Props) {
+export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, onBuyRoom, style, onStyle, costume, onCostume, halloween, onHalloween, notice, onNotice, onTinker, onSignOut, onClose, initialView = 'main' }: Props) {
   const lockedPlot = garden.plots.find((plot) => !plot.unlocked)
   const nextPlot = lockedPlot ? { slot: lockedPlot.slot, price: lockedPlot.unlock_price } : null
   const [view, setView] = useState<'main' | 'style' | 'costume' | 'missions' | 'shop' | 'pantry'>(initialView)
@@ -83,6 +84,8 @@ export function MenuSheet({ userId, canTinker, economy, garden, careOk, onBuy, s
             onBuyFood={garden.buyFood}
             nextPlot={nextPlot}
             onBuyPlot={garden.buyPlot}
+            rooms={economy.rooms}
+            onBuyRoom={onBuyRoom}
           />
         )}
 

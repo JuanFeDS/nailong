@@ -20,6 +20,10 @@ const candleGlow = { radius: 30, flicker: true }
 const brewGlow = { radius: 54, color: '110, 255, 70' }
 
 export const HALLOWEEN_DECOR: Record<Place, Decor[]> = {
+  bedroom: [],
+  kitchen: [],
+  bathroom: [],
+  playroom: [],
   room: [
     { sprite: 'lights', kind: 'top', x: 187, y: 4 },
     { sprite: 'web', kind: 'top', x: 2, y: 0 },

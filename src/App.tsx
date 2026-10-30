@@ -16,7 +16,7 @@ import { useEconomy } from './hooks/useEconomy'
 import { useGarden } from './hooks/useGarden'
 import { useHouse } from './hooks/useHouse'
 import { useWeatherCode } from './hooks/useWeather'
-import { ITEM_LABELS } from './lib/house'
+import { ITEM_LABELS, ROOM_LABELS, type RoomName } from './lib/house'
 import { isSleepTime, WAKE_LABEL } from './lib/sleep'
 import { loadCostume, saveCostume } from './lib/costumes'
 import { loadHalloween, saveHalloween } from './lib/halloween'
@@ -79,7 +79,7 @@ function Home({ userId }: { userId: string }) {
   const showSleepingNotice = () => showNotice('Shh, Nailong está durmiendo')
 
   useEffect(() => {
-    if (phase !== 'home' || location !== 'patio') return
+    if (phase !== 'home' || location === 'room' || location === 'bedroom') return
     const bringInside = () => isAsleep() && setPlace('room')
     bringInside()
     const timer = window.setInterval(bringInside, 30_000)
@@ -128,6 +128,11 @@ function Home({ userId }: { userId: string }) {
     reload()
     showNotice(`Comprado: ${ITEM_LABELS[bought.kind] ?? bought.kind}. Colócalo con el trasteo`)
   }
+  const buyRoom = async (room: RoomName) => {
+    if (!(await economy.buyRoom(room))) return
+    reload()
+    showNotice(`¡${ROOM_LABELS[room]} comprado! Entra por su puerta en la sala`)
+  }
   const sendWithSound = () => {
     playSfx('send')
     send()
@@ -170,6 +175,7 @@ function Home({ userId }: { userId: string }) {
           garden={garden}
           careOk={Math.min(stats.satiety, stats.happiness, stats.energy) > 50}
           onBuy={buy}
+          onBuyRoom={buyRoom}
           style={style}
           onStyle={changeStyle}
           costume={costume}

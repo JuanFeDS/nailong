@@ -1,9 +1,33 @@
 export const ROOM_WIDTH = 640
 export const ROOM_HEIGHT = 360
 
-export type Place = 'room' | 'patio'
-export const PLACE_WIDTH: Record<Place, number> = { room: 640, patio: 952 }
-export const WALL_HEIGHT: Record<Place, number> = { room: 148, patio: 172 }
+export const ROOMS = ['bedroom', 'kitchen', 'bathroom', 'playroom'] as const
+export type RoomName = (typeof ROOMS)[number]
+export type Place = 'room' | 'patio' | RoomName
+export const PLACES: Place[] = ['room', 'patio', ...ROOMS]
+export const PLACE_WIDTH: Record<Place, number> = { room: 640, patio: 952, bedroom: 640, kitchen: 640, bathroom: 640, playroom: 640 }
+export const WALL_HEIGHT: Record<Place, number> = { room: 148, patio: 172, bedroom: 148, kitchen: 148, bathroom: 148, playroom: 148 }
+export const isPlace = (value: string): value is Place => (PLACES as string[]).includes(value)
+
+export const ROOM_LABELS: Record<RoomName, string> = {
+  bedroom: 'Dormitorio',
+  kitchen: 'Cocina',
+  bathroom: 'Baño',
+  playroom: 'Cuarto de juegos',
+}
+export const ROOM_BLURBS: Record<RoomName, string> = {
+  bedroom: 'Con cama para dormir y mesita de noche',
+  kitchen: 'Con nevera para dar de comer y estufa',
+  bathroom: 'Con tina y lavamanos',
+  playroom: 'Con maquinita de minijuegos y tobogán',
+}
+// Paredes y pisos fijos de cada cuarto; la sala usa el estilo que elige el usuario.
+export const ROOM_STYLES: Record<RoomName, { wall: WallId; floor: FloorId }> = {
+  bedroom: { wall: 'rose', floor: 'wood' },
+  kitchen: { wall: 'cream', floor: 'gray' },
+  bathroom: { wall: 'blue', floor: 'light' },
+  playroom: { wall: 'green', floor: 'light' },
+}
 
 export const ITEM_KINDS = [
   'bed', 'bowl', 'ball', 'door', 'rug', 'plant',
@@ -11,11 +35,13 @@ export const ITEM_KINDS = [
   'lamp', 'fishtank', 'desk', 'guitar', 'cactus', 'wardrobe', 'poster', 'mirror',
   'sofa', 'cushions', 'coffeetable', 'tv', 'bigplant', 'painting', 'hangingplant',
   'bench', 'flowerpots', 'birdbath', 'lamppost',
+  'door_bedroom', 'door_kitchen', 'door_bathroom', 'door_playroom', 'exitdoor',
+  'nightstand', 'fridge', 'stove', 'bathtub', 'sink', 'arcade', 'slide',
   'backdoor', 'gate', 'swing', 'goal', 'soccerball', 'plot_empty', 'plot_sprout', 'plot_growing', 'plot_ripe', 'plot_wilted',
 ] as const
 export type ItemKind = (typeof ITEM_KINDS)[number]
 
-export type Task = 'feed' | 'play' | 'sleep' | 'send' | 'patio' | 'room' | 'water' | 'swing' | 'soccer'
+export type Task = 'feed' | 'play' | 'sleep' | 'send' | 'water' | 'swing' | 'soccer' | 'minigames' | Place
 type Zone = 'floor' | 'wall' | 'door'
 
 interface ItemDef {
@@ -48,6 +74,18 @@ export const ITEM_DEFS: Record<ItemKind, ItemDef> = {
   flowerpots: { task: null, zone: 'floor' },
   birdbath: { task: null, zone: 'floor' },
   lamppost: { task: null, zone: 'floor' },
+  door_bedroom: { task: 'bedroom', spot: { dx: 0, dy: 30 }, zone: 'door' },
+  door_kitchen: { task: 'kitchen', spot: { dx: 0, dy: 30 }, zone: 'door' },
+  door_bathroom: { task: 'bathroom', spot: { dx: 0, dy: 30 }, zone: 'door' },
+  door_playroom: { task: 'playroom', spot: { dx: 0, dy: 30 }, zone: 'door' },
+  exitdoor: { task: 'room', spot: { dx: 0, dy: 30 }, zone: 'door' },
+  nightstand: { task: null, zone: 'floor' },
+  fridge: { task: 'feed', spot: { dx: 40, dy: 10 }, zone: 'floor' },
+  stove: { task: null, zone: 'floor' },
+  bathtub: { task: null, zone: 'floor' },
+  sink: { task: null, zone: 'floor' },
+  arcade: { task: 'minigames', spot: { dx: 0, dy: 16 }, zone: 'floor' },
+  slide: { task: null, zone: 'floor' },
   backdoor: { task: 'patio', spot: { dx: 0, dy: 30 }, zone: 'door' },
   gate: { task: 'room', spot: { dx: 0, dy: 22 }, zone: 'door' },
   swing: { task: 'swing', spot: { dx: 0, dy: 14 }, zone: 'floor' },

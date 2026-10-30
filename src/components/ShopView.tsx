@@ -1,8 +1,8 @@
-import type { ShopItem } from '../hooks/useEconomy'
+import type { RoomOffer, ShopItem } from '../hooks/useEconomy'
 import type { FoodItem, FoodKind } from '../hooks/useGarden'
 import { asset } from '../lib/asset'
 import { FOOD_ICONS, FOOD_LABELS } from '../lib/food'
-import { ITEM_LABELS, type ItemKind, type Place } from '../lib/house'
+import { ITEM_LABELS, type ItemKind, type Place, ROOM_BLURBS, ROOM_LABELS, type RoomName } from '../lib/house'
 import { PixelIcon } from './PixelIcon'
 
 interface Props {
@@ -14,9 +14,11 @@ interface Props {
   onBuyFood: (food: FoodKind) => void
   nextPlot: { slot: number; price: number } | null
   onBuyPlot: () => void
+  rooms: RoomOffer[]
+  onBuyRoom: (room: RoomName) => void
 }
 
-export function ShopView({ coins, shop, error, onBuy, foods, onBuyFood, nextPlot, onBuyPlot }: Props) {
+export function ShopView({ coins, shop, error, onBuy, foods, onBuyFood, nextPlot, onBuyPlot, rooms, onBuyRoom }: Props) {
   return (
     <section className="menu__section">
       <h3 className="menu__heading">Comida</h3>
@@ -57,6 +59,23 @@ export function ShopView({ coins, shop, error, onBuy, foods, onBuyFood, nextPlot
           </button>
         )}
       </div>
+      {rooms.length > 0 && <h3 className="menu__heading">Cuartos</h3>}
+      {rooms.map((offer) => (
+        <div key={offer.room} className="mission">
+          <div className="mission__info">
+            <span className="mission__label">
+              <PixelIcon name="house" size={16} /> {ROOM_LABELS[offer.room]}
+            </span>
+            <span className="mission__progress">{offer.owned ? 'Ya es tuyo' : ROOM_BLURBS[offer.room]}</span>
+          </div>
+          {!offer.owned && (
+            <button className="btn btn--small" disabled={coins < offer.price} onClick={() => onBuyRoom(offer.room)}>
+              <PixelIcon name="coin" size={16} />
+              {offer.price}
+            </button>
+          )}
+        </div>
+      ))}
       {SHOP_SECTIONS.map(({ place, title }) => (
         <ShopSection key={place} title={title} items={shop.filter((item) => item.place === place)} coins={coins} onBuy={onBuy} />
       ))}

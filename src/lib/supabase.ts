@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Place } from './house'
 
 export const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -13,7 +14,7 @@ export interface NailongRow {
   current_home: string | null
   last_sent_at: string | null
   status: 'home' | 'traveling' | 'lost'
-  place: 'room' | 'patio'
+  place: Place
   arrives_at: string | null
   last_entered_at: string | null
   awake_until: string | null

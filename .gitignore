@@ -10,3 +10,4 @@ dist
 /public/sprites/processed/*_preview.png
 /public/sprites/processed/zz_*.png
 /supabase/.temp/
+__pycache__/

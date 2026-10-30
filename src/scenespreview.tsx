@@ -53,6 +53,13 @@ function TopbarPreview() {
             refresh: async () => undefined,
             claim: async () => undefined,
             buy: async () => null,
+            rooms: [
+              { room: 'bedroom', price: 1200, owned: true },
+              { room: 'kitchen', price: 1500, owned: false },
+              { room: 'bathroom', price: 1800, owned: false },
+              { room: 'playroom', price: 2200, owned: false },
+            ],
+            buyRoom: async () => false,
           }}
           garden={{
             pantry: { items: { bread: 2, tomato: 1 }, ration_ready: false, ration_at: null },
@@ -76,6 +83,7 @@ function TopbarPreview() {
           }}
           careOk
           onBuy={() => undefined}
+          onBuyRoom={() => undefined}
           style={{ wall: 'blue', floor: 'wood' }}
           onStyle={() => undefined}
           notice={notice}

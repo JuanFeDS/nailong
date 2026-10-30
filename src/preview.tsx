@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Room } from './components/Room'
-import { FLOORS, type FloorId, type HouseItem, type ItemKind, type Place, WALLS, type WallId } from './lib/house'
+import { FLOORS, type FloorId, type HouseItem, isPlace, type ItemKind, type Place, WALLS, type WallId } from './lib/house'
 import { WINDOW_NAMES, type WindowName } from './lib/weather'
 import './style.css'
 
@@ -21,6 +21,18 @@ const DEFAULT_LAYOUT: [ItemKind, number, number][] = [
 
 const PATIO_LAYOUT: [ItemKind, number, number][] = [
   ['gate', 476, 180], ['swing', 170, 285], ['goal', 830, 262], ['soccerball', 720, 322],
+]
+
+const ROOM_DOORS: [ItemKind, number, number][] = [
+  ['door_bedroom', 90, 156], ['door_kitchen', 400, 156], ['door_bathroom', 160, 156], ['door_playroom', 470, 156],
+]
+
+const ROOM_FIXTURES: [Place, ItemKind, number, number][] = [
+  ['bedroom', 'bed', 300, 262], ['bedroom', 'nightstand', 400, 236],
+  ['kitchen', 'fridge', 120, 214], ['kitchen', 'stove', 230, 214],
+  ['bathroom', 'bathtub', 220, 250], ['bathroom', 'sink', 400, 214],
+  ['playroom', 'arcade', 150, 222], ['playroom', 'slide', 340, 266],
+  ...(['bedroom', 'kitchen', 'bathroom', 'playroom'] as const).map((room): [Place, ItemKind, number, number] => [room, 'exitdoor', 560, 156]),
 ]
 
 function Preview() {
@@ -48,10 +60,13 @@ function Preview() {
     timers.push(window.setTimeout(() => clickAt(720 - 592, 315), 1200))
     return () => timers.forEach((timer) => window.clearTimeout(timer))
   }, [])
-  const [place, setPlace] = useState<Place>(params.get('place') === 'patio' ? 'patio' : 'room')
+  const requestedPlace = params.get('place') ?? 'room'
+  const [place, setPlace] = useState<Place>(isPlace(requestedPlace) ? requestedPlace : 'room')
   const [items, setItems] = useState<HouseItem[]>([
     ...DEFAULT_LAYOUT.map(([kind, x, y]) => ({ id: kind, house_id: 'prueba', kind, place: 'room' as const, x, y })),
     ...PATIO_LAYOUT.map(([kind, x, y]) => ({ id: kind, house_id: 'prueba', kind, place: 'patio' as const, x, y })),
+    ...(params.has('rooms') ? ROOM_DOORS : []).map(([kind, x, y]) => ({ id: kind, house_id: 'prueba', kind, place: 'room' as const, x, y })),
+    ...(params.has('rooms') ? ROOM_FIXTURES : []).map(([room, kind, x, y]) => ({ id: `${room}-${kind}`, house_id: 'prueba', kind, place: room, x, y })),
   ])
   return (
     <main>
