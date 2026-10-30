@@ -10,6 +10,7 @@ from pathlib import Path
 
 from PIL import Image
 
+import muebles_cuartos
 import muebles_patio
 import muebles_sala
 
@@ -37,7 +38,7 @@ def main():
     parser.add_argument("--lamina", type=Path)
     argumentos = parser.parse_args()
 
-    sprites = {nombre: dibujar() for nombre, dibujar in {**muebles_sala.OBJETOS, **muebles_patio.OBJETOS}.items()}
+    sprites = {nombre: dibujar() for nombre, dibujar in {**muebles_sala.OBJETOS, **muebles_patio.OBJETOS, **muebles_cuartos.OBJETOS}.items()}
     argumentos.salida.mkdir(parents=True, exist_ok=True)
     for nombre, sprite in sprites.items():
         sprite.save(argumentos.salida / f"{nombre}.png")
