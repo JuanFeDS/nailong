@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { HouseItem } from '../lib/house'
+import type { Place } from '../lib/house'
 import { supabase } from '../lib/supabase'
 
 export type MissionId = 'feed' | 'play' | 'care'
@@ -15,6 +16,7 @@ export interface Wallet {
 export interface ShopItem {
   kind: string
   price: number
+  place: Place
 }
 
 const EMPTY_WALLET: Wallet = { coins: 0, earned_today: 0, feeds: 0, plays: 0, claimed: [] }
@@ -36,7 +38,7 @@ export function useEconomy(refreshKey: string | undefined) {
   useEffect(() => {
     supabase
       .from('shop_items')
-      .select('kind, price')
+      .select('kind, price, place')
       .order('price')
       .then(({ data }) => data && setShop(data as ShopItem[]))
   }, [])

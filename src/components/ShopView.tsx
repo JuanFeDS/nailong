@@ -2,7 +2,7 @@ import type { ShopItem } from '../hooks/useEconomy'
 import type { FoodItem, FoodKind } from '../hooks/useGarden'
 import { asset } from '../lib/asset'
 import { FOOD_ICONS, FOOD_LABELS } from '../lib/food'
-import { ITEM_LABELS, type ItemKind } from '../lib/house'
+import { ITEM_LABELS, type ItemKind, type Place } from '../lib/house'
 import { PixelIcon } from './PixelIcon'
 
 interface Props {
@@ -57,9 +57,33 @@ export function ShopView({ coins, shop, error, onBuy, foods, onBuyFood, nextPlot
           </button>
         )}
       </div>
-      <h3 className="menu__heading">Muebles</h3>
+      {SHOP_SECTIONS.map(({ place, title }) => (
+        <ShopSection key={place} title={title} items={shop.filter((item) => item.place === place)} coins={coins} onBuy={onBuy} />
+      ))}
+      {error && <p className="error">{error}</p>}
+    </section>
+  )
+}
+
+const SHOP_SECTIONS: { place: Place; title: string }[] = [
+  { place: 'room', title: 'Muebles de la sala' },
+  { place: 'patio', title: 'Cosas del patio' },
+]
+
+interface SectionProps {
+  title: string
+  items: ShopItem[]
+  coins: number
+  onBuy: (kind: string) => void
+}
+
+function ShopSection({ title, items, coins, onBuy }: SectionProps) {
+  if (items.length === 0) return null
+  return (
+    <>
+      <h3 className="menu__heading">{title}</h3>
       <div className="shop">
-        {shop.map((item) => (
+        {items.map((item) => (
           <div key={item.kind} className="shop__item">
             <img
               className="shop__image"
@@ -74,7 +98,6 @@ export function ShopView({ coins, shop, error, onBuy, foods, onBuyFood, nextPlot
           </div>
         ))}
       </div>
-      {error && <p className="error">{error}</p>}
-    </section>
+    </>
   )
 }
